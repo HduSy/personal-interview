@@ -1,0 +1,14 @@
+{
+  "name": "fe-interview",
+  "version": "1.0.0",
+  "private": true,
+  "description": "个人前端面试学习记录",
+  "scripts": {
+    "dev": "rspress dev",
+    "build": "rspress build",
+    "preview": "rspress preview"
+  },
+  "dependencies": {
+    "rspress": "^1.42"
+  }
+}
