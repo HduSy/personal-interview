@@ -1,4 +1,62 @@
 import { defineConfig } from 'rspress/config';
+import fs from 'node:fs';
+import path from 'node:path';
+
+// 自动根据 docs 目录结构和每个文件的第一行 # 标题生成侧边栏
+// 从此新增/修改题目文件，无需再碰此配置文件！
+function getAutoSidebar() {
+  const titles: Record<string, string> = {
+    html: 'HTML 基础',
+    css: 'CSS 与布局',
+    javascript: 'JavaScript 核心',
+    browser: '浏览器 & 网络',
+    agent: 'Agent',
+    framework: '前端框架',
+    algorithm: '手撕&力扣算法题',
+    engineering: '项目&工程',
+    notes: '面试复盘',
+  };
+
+  const sidebar: Record<string, any[]> = {};
+  const docsDir = path.resolve(__dirname, 'docs');
+
+  for (const [folder, groupTitle] of Object.entries(titles)) {
+    const dirPath = path.join(docsDir, folder);
+    if (!fs.existsSync(dirPath)) continue;
+
+    const files = fs.readdirSync(dirPath).filter(f => f.endsWith('.mdx') || f.endsWith('.md'));
+    files.sort((a, b) => {
+      if (a.startsWith('index')) return -1;
+      if (b.startsWith('index')) return 1;
+      return a.localeCompare(b, undefined, { numeric: true });
+    });
+
+    const items = files.map(f => {
+      const name = f.replace(/\.mdx?$/, '');
+      if (name === 'index') {
+        return { text: '概览', link: `/${folder}/` };
+      }
+      const fullPath = path.join(dirPath, f);
+      try {
+        const content = fs.readFileSync(fullPath, 'utf8');
+        const match = content.match(/^#\s+(.*)$/m);
+        const text = match ? match[1].trim() : name;
+        return { text, link: `/${folder}/${name}` };
+      } catch {
+        return { text: name, link: `/${folder}/${name}` };
+      }
+    });
+
+    sidebar[`/${folder}/`] = [
+      {
+        text: groupTitle,
+        items,
+      },
+    ];
+  }
+
+  return sidebar;
+}
 
 export default defineConfig({
   root: 'docs',
@@ -16,24 +74,12 @@ export default defineConfig({
       { text: '项目&工程', link: '/engineering/' },
       { text: '面试复盘', link: '/notes/' },
     ],
-    sidebar: {
-      '/html/': [
-        {
-          text: 'HTML 基础',
-          items: [
-            { text: '概览', link: '/html/' },
-            { text: '01. src 与 href 的区别', link: '/html/01-src-vs-href' },
-            { text: '02. HTML 语义化', link: '/html/02-html-semantics' },
-          ],
-        },
-      ],
-    },
+    sidebar: getAutoSidebar(),
     socialLinks: [
       {
         icon: 'github',
         mode: 'link',
         content: 'https://github.com/HduSy/personal-interview',
-
       },
     ],
     footer: {
