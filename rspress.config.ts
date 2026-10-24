@@ -23,7 +23,6 @@ export default defineConfig({
           items: [
             { text: '概览', link: '/html/' },
             { text: '01. src 与 href 的区别', link: '/html/01-src-vs-href' },
-            { text: '02. HTML 语义化', link: '/html/02-html-semantics' },
           ],
         },
       ],
