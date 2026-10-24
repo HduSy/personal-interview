@@ -4,3 +4,8 @@ doc_build/
 .DS_Store
 *.log
 .env
+.history/
+
+# Private notes
+docs/engineering/
+docs/notes/
