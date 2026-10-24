@@ -1,0 +1,67 @@
+# 03. DOCTYPE（文档类型）的作用
+
+## 1. 什么是 DOCTYPE？
+
+**DOCTYPE**（Document Type Declaration，文档类型声明）位于 HTML 文档的最首行，必须在 `<html>` 根标签之前声明。
+
+它的核心作用是**告知浏览器应该以何种规范（HTML 规范）来解析和渲染页面**，从而作为开关决定浏览器进入**标准模式（Standards Mode）**还是**怪异模式（Quirks Mode / 混杂模式）**。
+
+需要明确的是：`<!DOCTYPE>` **不是 HTML 标签**，而是一条供浏览器排版引擎识别的编译指示指令。
+
+## 2. 浏览器的渲染模式：标准模式 vs 怪异模式
+
+早期的浏览器（如 IE 4、Netscape 4）在 W3C 规范制定前各自实现了一套渲染规则。后来 W3C 标准出台，如果直接强制所有浏览器按新标准执行，成千上万的老旧网站排版就会瞬间崩坏。
+
+为此，现代浏览器引入了「模式切换」机制：
+- **标准模式（Standards Mode / 严格模式）**：文档包含规范的 DOCTYPE，浏览器严格按照 W3C 规范排版和执行 CSS/JS。
+- **怪异模式（Quirks Mode / 混杂模式）**：当缺少 DOCTYPE 或声明格式不正确时触发，浏览器会模拟 90 年代老浏览器的宽松行为，容错率高但规则不统一。
+- **几乎标准模式（Almost Standards Mode）**：与标准模式基本一致，唯一差别是对表格单元格内图片的垂直对齐保留了部分传统怪异行为。
+
+### 核心差异对比
+
+| 差异维度 | 标准模式（Standards Mode） | 怪异模式（Quirks Mode） |
+| --- | --- | --- |
+| **盒模型计算机制** | 遵循 **W3C 标准盒模型**：元素的 `width/height` 仅包含内容区（Content），总尺寸由 `width + padding + border` 决定 | 遵循 **IE 怪异盒模型**：元素的 `width/height` 包含了 `content + padding + border` |
+| **块级元素水平居中** | `margin: 0 auto` 正常使块级元素居中 | `margin: 0 auto` 可能失效，需在父级依赖 `text-align: center`  hack 居中 |
+| **行内元素尺寸设置** | 对 `<span>` 等纯 `inline` 元素直接设置 `width/height` 无效 | 部分行内元素设置宽高可能会异常生效 |
+| **表格字体继承** | `<table>` 内部文本正常继承父级元素的 `font-size` 等样式 | 表格内部样式往往不从父级继承，需额外显式声明 `table` 样式 |
+| **百分比高度计算** | 若父元素未指定具体高度，子元素设置 `height: 100%` 失效（按 `auto` 处理） | 即使父级没有显式高度，子元素也可能会被强行撑开计算 |
+
+## 3. HTML5 与历史版本的 DOCTYPE 对比
+
+在 HTML4.01 和 XHTML 1.0 时代，HTML 规范是基于 **SGML**（标准通用标记语言）制定的，因此必须通过 **DTD**（Document Type Definition，文档类型定义）来指明合法的元素和属性规则，写法非常繁琐：
+
+```html
+<!-- HTML 4.01 严格模式（需引用外部 DTD） -->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+
+<!-- XHTML 1.0 过渡模式 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+```
+
+而从 **HTML5** 开始，HTML 规范**不再基于 SGML**，因此不再需要引用任何 DTD。HTML5 的声明化繁为简：
+
+```html
+<!DOCTYPE html>
+```
+
+这行声明对大小写不敏感，在现代网页中，它最关键的存在价值就是**作为一把钥匙，稳定触发浏览器的标准模式**。
+
+---
+
+## 你的回答
+
+Doctype 写在 HTML 文档的第一行，它不是一个 HTML 标签，而是一个编译指令，告诉浏览器是以标准 W3C 模式去渲染页面，还是以 IE 怪异模式去渲染。
+
+这两者最大的差别在于盒模型上：在标准模式下，width 宽度只包含内容区，不包含 border、padding 以及 margin。
+
+## 口述点评
+
+**评分：6/10**
+
+总体准确度较高，核心概念（位置、指令性质、模式切换开关、标准盒模型 width 仅含 content）抓得很准，但作为一道经典面试题，覆盖面和闭环稍欠缺。
+
+**缺口与建议：**
+1. **对比没形成闭环**：指出了标准盒模型 width 仅算 content，但没有顺手点出怪异盒模型的 width 把 `padding + border` 也算进去了，对比少了一半。
+2. **遗漏 HTML5 的极简演变机制**：建议顺带提一句 HTML5 为什么不再写长串 DTD（因为 HTML5 不基于 SGML，写 `<!DOCTYPE html>` 唯一的目的就是开启标准模式）。
+3. **缺少 1 个辅助的实际踩坑表现**：除了盒模型翻车，怪异模式下常见的痛点还有块级元素 `margin: 0 auto` 居中失效、表格内字体不继承父级，口述时带一句会显得实践经验更丰富。
