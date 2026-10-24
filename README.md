@@ -1,19 +1,23 @@
-# 2026-Front-end-Interview 🎯
+# personal-interview 🎯
+
 
 面试刷题记录，有目标就行，一步一步总能达成。系统梳理前端知识体系。
 
 ## 📂 目录结构
 
 ```
-fe-interview/
-├── javascript/        # JavaScript 核心
+personal-interview/
+
+├── html/              # HTML 基础
 ├── css/               # CSS 与布局
+├── javascript/        # JavaScript 核心
 ├── browser/           # 浏览器原理 & 网络
+├── agent/             # Agent
 ├── framework/         # 框架（React / Vue）
-├── algorithm/         # 算法与数据结构
-├── engineering/       # 工程化（构建 / CI/CD / 监控）
-├── system-design/     # 系统设计
+├── algorithm/         # 手撕&力扣算法题
+├── engineering/       # 项目&工程（项目梳理 / 构建 / Monorepo）
 └── notes/             # 面试复盘 & 杂记
+
 ```
 
 ## 📝 约定
@@ -27,13 +31,15 @@ fe-interview/
 
 | 模块 | 状态 |
 |------|------|
-| JavaScript | 🔄 进行中 |
+| HTML | ⬜ 待开始 |
 | CSS | ⬜ 待开始 |
+| JavaScript | 🔄 进行中 |
 | 浏览器 & 网络 | ⬜ 待开始 |
+| Agent | ⬜ 待开始 |
 | 框架 | ⬜ 待开始 |
-| 算法 | ⬜ 待开始 |
-| 工程化 | ⬜ 待开始 |
-| 系统设计 | ⬜ 待开始 |
+| 手撕&力扣算法题 | ⬜ 待开始 |
+| 项目&工程 | ⬜ 待开始 |
+
 
 ## 🔧 本地运行
 
