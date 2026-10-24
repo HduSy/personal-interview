@@ -15,8 +15,18 @@ export default defineConfig({
       { text: '手撕&力扣', link: '/algorithm/' },
       { text: '项目&工程', link: '/engineering/' },
       { text: '面试复盘', link: '/notes/' },
-
     ],
+    sidebar: {
+      '/html/': [
+        {
+          text: 'HTML 基础',
+          items: [
+            { text: '概览', link: '/html/' },
+            { text: '01. src 与 href 的区别', link: '/html/01-src-vs-href' },
+          ],
+        },
+      ],
+    },
     socialLinks: [
       {
         icon: 'github',
