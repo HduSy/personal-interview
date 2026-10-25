@@ -1,0 +1,115 @@
+# 05. 常用的 meta 标签有哪些？
+
+## 1. 什么是 meta 标签？
+
+`<meta>` 标签位于 HTML 文档的 `<head>` 区域内，用于**提供关于 HTML 文档的元数据（Metadata）**。
+
+元数据本身不会直接渲染显示在页面主体中，但会被**浏览器**（控制页面渲染与缓存行为）、**搜索引擎爬虫**（用于 SEO 索引与权重评估）、以及**社交分享平台**（抓取卡片摘要与封面）读取和解析。
+
+`<meta>` 标签的核心配置方式分为三类属性组合：
+- `charset`：声明字符编码。
+- `name` + `content`：面向文档元信息与 SEO（给爬虫和第三方工具看）。
+- `http-equiv` + `content`：模拟 HTTP 响应头行为（给浏览器引擎看）。
+
+## 2. 常见 meta 标签按功能分类详解
+
+### (1) 基础与字符编码
+
+```html
+<!-- 声明文档字符编码，必须置于 head 最前部以避免乱码 -->
+<meta charset="UTF-8">
+```
+
+### (2) 移动端响应式视口（Viewport）
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+```
+
+| 参数 | 含义 |
+| --- | --- |
+| `width=device-width` | 将视口宽度设置为设备屏幕的物理独立像素宽度（禁止默认 980px 缩放） |
+| `initial-scale=1.0` | 初始页面缩放比例为 1:1（不缩放） |
+| `maximum-scale=1.0` | 允许用户缩放到的最大比例 |
+| `user-scalable=no` | 是否允许用户通过双指手势缩放页面（`yes` / `no`） |
+
+### (3) 搜索引擎优化（SEO）
+
+```html
+<!-- 页面描述：搜索引擎展示在标题下方的摘要，极大影响点击率 -->
+<meta name="description" content="前端面试知识体系梳理与卡片复习">
+
+<!-- 关键词：早期 SEO 核心，现代搜索引擎权重降低但仍作参考 -->
+<meta name="keywords" content="前端, 面试, JavaScript, HTML, CSS">
+
+<!-- 爬虫抓取控制：是否建立索引、是否追踪页面内的超链接 -->
+<meta name="robots" content="index, follow">
+
+<!-- 作者信息 -->
+<meta name="author" content="Rayon">
+```
+
+### (4) 浏览器行为与 HTTP 模拟（`http-equiv`）
+
+```html
+<!-- 告知 IE 浏览器采用最高版本的渲染模式（Edge 模式） -->
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+<!-- 页面自动刷新或重定向（如 5 秒后跳转到首页） -->
+<meta http-equiv="refresh" content="5;url=https://example.com">
+
+<!-- 禁止浏览器本地缓存（常用于后台管理系统或金融页面） -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+
+<!-- 内容安全策略（CSP）：防范 XSS 攻击，限制脚本/样式来源 -->
+<meta http-equiv="Content-Security-Policy" content="script-src 'self'">
+```
+
+### (5) 社交平台分享与 Open Graph（OG 协议）
+
+常用于微信、Twitter/X、Facebook、Slack 等平台的卡片分享预览：
+
+```html
+<meta property="og:type" content="website">
+<meta property="og:title" content="前端面试指南">
+<meta property="og:description" content="包含核心考点、原理解析与手写实战。">
+<meta property="og:image" content="https://example.com/cover.png">
+<meta property="og:url" content="https://example.com">
+```
+
+## 3. 核心对比与速记表格
+
+| 分类 | 常见键名 (`name` / `http-equiv` / `property`) | 核心作用 |
+| --- | --- | --- |
+| **基础规范** | `charset="UTF-8"` | 防止中文与特殊字符乱码 |
+| **移动端适配** | `name="viewport"` | 控制视口宽度与缩放，响应式基石 |
+| **SEO 优化** | `name="description"` / `name="keywords"` / `name="robots"` | 爬虫索引与搜索结果摘要展示 |
+| **浏览器控制** | `http-equiv="X-UA-Compatible"` / `http-equiv="Cache-Control"` | 兼容性模式与页面缓存控制 |
+| **社交卡片** | `property="og:title"` / `property="og:image"` | 社交平台链接卡片预览图文 |
+
+---
+
+## 你的回答
+
+Meta 标签是写在 HTML head 标签内的一部分，用来设置文档的元数据。常见的分三类：
+
+第一种：charset 字符设置，用于设置页面的字符编码。
+
+第二种：以 name、content 属性来声明一些字段。比如最常见的有：
+- (a) 移动端适配的配置：viewport
+- (b) 用于搜索引擎爬虫：meta title、description、keywords 等
+- (c) 用于浏览器的适配：比如说 HTTP
+
+第三类：社交网络的分享基于 Open Graph 协议，比如说 OG title、OG description、OG image 等，用于 Twitter(X) 或微信等社交平台识别。
+
+## 口述点评
+
+**评分：7.5/10**
+
+**总体评价**：分类逻辑非常漂亮！从 head 内部定义切入，覆盖了字符编码、移动端 viewport、SEO 爬虫，甚至主动提到了现代前端极其加分的 Open Graph（OG）社交卡片协议，知识面很广。
+
+**核心缺口与精进建议：**
+1. **遗漏核心属性 `http-equiv`（关键扣分点）**：口述中把浏览器行为归到了第二类并提到了「HTTP」，但没有叫出与 `name` 平级的专属属性名 **`http-equiv`**。它的核心定位是「模拟 HTTP 响应头行为」（如 `http-equiv="X-UA-Compatible"` 控制 IE 模式、`Cache-Control` 控制缓存、`refresh` 定时跳转）。
+2. **存在概念口误（无 `meta title`）**：页面的主标题是由独立的 `<title>` 标签承载的，标准 meta 中并没有 `name="title"`（只有 OG 协议中使用的 `property="og:title"`）。
+3. **viewport 参数未展开**：viewport 是高频追问点，只报名字略显单薄，建议顺口补一句最核心的 `width=device-width, initial-scale=1.0`（让视口等于设备独立像素，禁止默认 980px 缩放），回答会瞬间从「听过」变成「天天在写」。
