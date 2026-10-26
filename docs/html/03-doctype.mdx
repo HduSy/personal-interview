@@ -1,3 +1,5 @@
+import { Mermaid } from '../../components';
+
 # 03. DOCTYPE（文档类型）的作用
 
 ## 1. 什么是 DOCTYPE？
@@ -16,6 +18,18 @@
 - **标准模式（Standards Mode / 严格模式）**：文档包含规范的 DOCTYPE，浏览器严格按照 W3C 规范排版和执行 CSS/JS。
 - **怪异模式（Quirks Mode / 混杂模式）**：当缺少 DOCTYPE 或声明格式不正确时触发，浏览器会模拟 90 年代老浏览器的宽松行为，容错率高但规则不统一。
 - **几乎标准模式（Almost Standards Mode）**：与标准模式基本一致，唯一差别是对表格单元格内图片的垂直对齐保留了部分传统怪异行为。
+
+<Mermaid chart={`
+flowchart TD
+    Start["HTML 文档首行解析"] --> Check{"是否存在规范的 <!DOCTYPE> 声明？"}
+    Check -- "是 (规范声明)" --> Standards["标准模式 (Standards Mode)"]
+    Standards --> S1["遵循 W3C 标准盒模型<br/>width = content"]
+    Standards --> S2["margin: 0 auto 正常居中"]
+
+    Check -- "否 (缺失或格式错误)" --> Quirks["怪异模式 (Quirks Mode)"]
+    Quirks --> Q1["退化为 IE 怪异盒模型<br/>width = content + padding + border"]
+    Quirks --> Q2["margin: 0 auto 居中可能失效"]
+`} />
 
 ### 核心差异对比
 

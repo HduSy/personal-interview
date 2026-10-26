@@ -1,3 +1,5 @@
+import { Mermaid } from '../../components';
+
 # 04. script 标签中 defer 和 async 的区别
 
 ## 1. 为什么需要 defer 与 async？（默认 script 的阻塞机制）
@@ -30,19 +32,37 @@
 
 ### 加载与执行流程对比
 
-```text
-HTML 解析:    ======                          ========>
-普通 script:        [下载][执行]
-                  (DOM 解析被迫中断)
+<Mermaid chart={`
+sequenceDiagram
+    autonumber
+    actor Parser as HTML 解析器
+    participant Normal as 普通 script
+    participant Defer as defer 脚本
+    participant Async as async 脚本
 
-HTML 解析:    ========================================>
-defer script:       [--异步下载--]              [执行]
-                                         (DOM解析完毕，DOMContentLoaded 前)
+    rect rgb(245, 245, 245)
+    Note over Parser,Normal: 【普通 script】同步阻塞
+    Parser->>Normal: 遇到 script 标签，立即暂停 DOM 解析
+    Normal-->>Normal: 同步下载并立即执行代码
+    Normal->>Parser: 执行完毕，恢复 DOM 解析
+    end
 
-HTML 解析:    ==============              ============>
-async script:       [--异步下载--][执行]
-                             (下载完立刻抢占线程执行)
-```
+    rect rgb(240, 248, 255)
+    Note over Parser,Defer: 【defer 脚本】异步下载，保序延迟执行
+    Parser-)Defer: 遇到标签，后台并行下载 (不阻塞 DOM)
+    Note over Parser: DOM 树持续解析直至完毕
+    Parser->>Defer: DOM 解析完毕，DOMContentLoaded 触发前执行
+    Defer-->>Defer: 严格按书写顺序执行
+    end
+
+    rect rgb(255, 245, 240)
+    Note over Parser,Async: 【async 脚本】异步下载，下载完立即插队
+    Parser-)Async: 遇到标签，后台并行下载 (不阻塞 DOM)
+    Note over Async: 一旦下载完成，立即抢占主线程执行
+    Async->>Parser: 强制中断当前 HTML 解析并执行
+    Async->>Parser: 脚本执行完毕，恢复剩余 DOM 解析
+    end
+`} />
 
 ## 3. 进阶延伸：type="module" 的行为
 

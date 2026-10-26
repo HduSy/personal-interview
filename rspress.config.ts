@@ -60,6 +60,12 @@ function getAutoSidebar() {
 
 export default defineConfig({
   root: 'docs',
+  markdown: {
+    globalComponents: [
+      path.join(__dirname, 'components/Mermaid.tsx'),
+      path.join(__dirname, 'components/Excalidraw.tsx'),
+    ],
+  },
   title: 'FE Interview',
   description: '个人前端面试学习记录',
   themeConfig: {

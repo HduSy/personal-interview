@@ -1,6 +1,5 @@
 {
   "name": "personal-interview",
-
   "version": "1.0.0",
   "private": true,
   "description": "个人前端面试学习记录",
@@ -11,5 +10,8 @@
   },
   "dependencies": {
     "rspress": "^1.42"
+  },
+  "devDependencies": {
+    "mermaid": "^12.2.0"
   }
 }
