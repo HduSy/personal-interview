@@ -1,0 +1,201 @@
+import { Mermaid } from '../../components';
+
+# 09. HTML5 离线存储怎么使用？工作原理是什么？
+
+## 1. 这道题在问什么：两层含义
+
+面试语境里的「HTML5 离线存储」有两层指向，先分层再作答：
+
+- **狭义（本题的经典出处）**：**Application Cache（AppCache，应用程序缓存）**——HTML5 早期提供的「资源级」离线方案，通过一份 **manifest** 清单文件声明哪些资源需要离线可用，让网页在断网时依然可以完整打开。
+- **广义**：HTML5 带来的整套本地存储能力，包括存「数据」的 **Web Storage**（localStorage / sessionStorage）与 **IndexedDB**。
+
+**资源离线与数据离线是两件事**：前者解决「断网时页面本身能不能打开」（AppCache → 现在的 Service Worker + Cache API），后者解决「断网时产生的数据存哪、怎么读」（localStorage / IndexedDB）。
+
+需要特别指出：**AppCache 已被从 HTML 规范中废弃**，主流浏览器先后移除了对它的支持（Firefox 85 于 2021 年 1 月、Chrome 93 于 2021 年 9 月）。所以今天的作答结构应当是：讲得出经典 AppCache 的用法与原理（题目出处），再主动交代它已废弃，并给出 **Service Worker + Cache API** 这套现代替代方案——老题的满分结构。
+
+## 2. 经典方案：Application Cache 的使用与工作原理
+
+### 使用方式
+
+第一步，编写 manifest 文件（约定扩展名 `.appcache`，需以 `text/cache-manifest` MIME 类型返回），第一行必须是 `CACHE MANIFEST`：
+
+```text
+CACHE MANIFEST
+# v1.0.0 —— 注释里写版本号：manifest 按字节比对，改注释即可触发更新
+
+CACHE:
+# 以下为需要离线缓存的资源
+/index.html
+/app.js
+/style.css
+
+NETWORK:
+# 以下资源永不缓存、必须走网络
+/api/
+
+FALLBACK:
+# 离线兜底：/api/ 开头的请求不可用时用 /offline.html 顶替
+/api/ /offline.html
+```
+
+第二步，在页面根标签上关联它：
+
+```html
+<html lang="zh-CN" manifest="/app.appcache">
+```
+
+引用 manifest 的 HTML 文档自身也会被隐式缓存。
+
+### 工作原理
+
+<Mermaid chart={`
+flowchart TD
+    A["首次访问"] --> B["正常在线加载页面<br/>同时把 CACHE 段资源写入离线缓存"]
+    B --> C["后续访问<br/>直接用离线缓存渲染（不等网络）"]
+    C --> D["后台重新请求 manifest<br/>与旧版逐字节比对"]
+    D --> E{"manifest 有变化？"}
+    E -- "没有" --> C
+    E -- "有" --> F["重新下载清单内全部资源"]
+    F --> G{"全部下载成功？"}
+    G -- "任一资源失败" --> H["整次更新作废<br/>继续用旧缓存"]
+    G -- "成功" --> I["新缓存就绪但本次不生效<br/>下一次访问才启用"]
+`} />
+
+概括为三句话：
+
+1. **首次访问**：正常联网加载页面，同时按 manifest 把 CACHE 段列出的资源存入离线缓存。
+2. **再次访问**：**永远先用离线缓存渲染页面**，然后浏览器在后台重新请求 manifest 做逐字节比对——没变则维持现状；变了就重新下载清单内全部资源。
+3. **更新慢一拍**：新缓存下载完成后**本次不生效**，要等下一次访问才启用。经典补救是用 JS 监听 `updateready` 事件，调用 `window.applicationCache.swapCache()` 换到新缓存后刷新页面。
+
+### 被废弃的原因（缺陷即考点）
+
+- **更新原子性差**：清单内任何一个资源下载失败，整次缓存更新作废，只能沿用旧版本。
+- **永远慢一拍**：更新成功也要下次访问才生效，催生了「改一行代码要刷两次」的著名体验问题。
+- **隐式规则坑多**：页面引用了 manifest 后，既不在 CACHE 段也不在 NETWORK 白名单里的资源，离线时一律无法加载，行为反直觉。
+- **策略不可编程**：只有固定的「缓存优先」一种策略，开发者没有任何控制权。Jake Archibald 2012 年那篇《Application Cache is a Douchebag》把这些坑系统性吐槽了一遍，直接推动了替代方案的诞生。
+
+## 3. 现代方案：Service Worker + Cache API
+
+**Service Worker**（SW）是运行在独立线程里的可编程「网络代理」：页面发出的请求先经过它，由代码决定读缓存还是走网络；配合 **Cache API**（专存 Response 对象的缓存仓库）即可实现完全可控的离线能力。
+
+```js
+// 1. 页面中注册（要求 HTTPS 或 localhost，作用域默认为 sw.js 所在目录）
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
+```
+
+```js
+// 2. sw.js：三个核心生命周期事件
+const CACHE_NAME = 'app-v1';
+const ASSETS = ['/', '/app.js', '/style.css'];
+
+self.addEventListener('install', (e) => {           // 安装：预缓存核心资源
+  e.waitUntil(caches.open(CACHE_NAME).then((c) => c.addAll(ASSETS)));
+});
+
+self.addEventListener('activate', (e) => {          // 激活：清理旧版本缓存
+  e.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    )
+  );
+});
+
+self.addEventListener('fetch', (e) => {             // 拦截请求：缓存优先，未命中走网络
+  e.respondWith(caches.match(e.request).then((res) => res || fetch(e.request)));
+});
+```
+
+工作原理对照 AppCache 理解：
+
+- **缓存策略可编程**：`fetch` 事件里想写缓存优先、网络优先还是 stale-while-revalidate（先用缓存、同时后台更新），全由代码决定，而不是固定的一种。
+- **更新粒度可控**：单个资源失败不会连坐整次更新；浏览器通过逐字节比对 `sw.js` 发现新版本后在后台安装，默认等使用旧 SW 的页面全部关闭才接管，调用 `skipWaiting()` + `clients.claim()` 可以立即接管。
+- **失败可以兜底**：捕获网络错误后按需返回兜底页面，比 manifest 的 FALLBACK 段灵活得多。
+
+| 维度 | AppCache（已废弃） | Service Worker + Cache API |
+| --- | --- | --- |
+| 配置方式 | 声明式：manifest 文本清单 | 命令式：JS 代码逐请求控制 |
+| 更新生效 | 永远慢一拍，下次访问才启用 | `skipWaiting` + `clients.claim` 可即时接管 |
+| 单资源失败 | 整次更新作废 | 可按请求粒度重试 / 兜底 |
+| 缓存策略 | 固定缓存优先 | 任意策略自由实现 |
+
+## 4. 补充：数据离线速览表
+
+资源离线讲完了，如果面试官继续追问「数据存哪」，用这张表收尾：
+
+| 方案 | 同源容量 | 接口风格 | 生命周期 | 典型用途 |
+| --- | --- | --- | --- | --- |
+| **localStorage** | 约 5MB | 同步，只能存字符串 | 永久（手动清除） | token、主题偏好等小数据 |
+| **sessionStorage** | 约 5MB | 同步，只能存字符串 | 当前标签页关闭即清 | 临时表单数据 |
+| **IndexedDB** | 大容量（受浏览器配额限制） | 异步、事务型，可存对象 / 文件 | 永久 | 离线同步、草稿、大量结构化数据 |
+
+一句话总结：**资源离线靠 Service Worker + Cache API，数据离线靠 Web Storage / IndexedDB**，两者组合起来就是 PWA 离线能力的全部底座。
+
+## 5. 进阶：浏览器侧如何管理与加载这些离线资源
+
+拆成「存在哪、怎么取、何时清」三个层面看。
+
+### 存在哪：分区存放、多层并存
+
+- **按源隔离**：所有站点存储（Cache API、IndexedDB、localStorage，以及 AppCache 时代的离线缓存）都以**源（origin）**为单位分区存放，互不可见；近几年主流浏览器进一步改为按「顶级站点 + 源」双键分区，第三方 iframe 内的存储与顶层站点隔离，顺带封死了存储侧的跨站追踪通道。
+- **多层缓存各司其职，互不替代**：
+
+| 缓存层 | 谁管理 | 生命周期 | 典型内容 |
+| --- | --- | --- | --- |
+| **内存缓存** | 渲染进程 | 标签页刷新即失 | 解码后的图片、预加载资源 |
+| **HTTP 磁盘缓存** | 浏览器（按 HTTP 语义） | 遵循 Cache-Control，LRU 启发式淘汰 | 常规静态资源 |
+| **Cache API** | 开发者代码 | 无过期语义，代码不删就一直在 | SW 离线资源（Request / Response 对） |
+
+- AppCache 时代的离线缓存同样按源独立存放、与 HTTP 缓存分离，只是如今已被移除。
+
+### 怎么取：一次请求的查找路径
+
+<Mermaid chart={`
+flowchart TD
+    Req["页面发起资源请求"] --> SW{"作用域内有<br/>Service Worker 控制？"}
+    SW -- "有" --> FE["进入 SW 的 fetch 事件<br/>由代码决定去向"]
+    FE --> CA{"Cache API 命中？"}
+    CA -- "命中" --> R1["直接返回缓存的 Response"]
+    CA -- "未命中 → fetch()" --> HC{"HTTP 缓存新鲜？"}
+    SW -- "没有" --> MEM{"内存缓存命中？"}
+    MEM -- "命中" --> R2["直接使用"]
+    MEM -- "未命中" --> HC
+    HC -- "新鲜" --> R3["直接用 HTTP 缓存"]
+    HC -- "过期 / 无缓存" --> NET["条件请求协商（ETag / Last-Modified）<br/>304 沿用本地副本，否则下载新资源"]
+`} />
+
+- **有 SW 控制时**：请求先交给 SW 的 fetch 事件，由代码决定查 Cache API 还是走网络；SW 里发起的 `fetch()` 默认仍遵循 HTTP 缓存语义（除非显式 `cache: 'no-store'`）。SW 脚本本身的更新检查默认绕过 HTTP 缓存直接逐字节比对（可用 `updateViaCache` 调整）。
+- **无 SW 时**：内存缓存 → HTTP 缓存（新鲜直接用；过期走条件请求协商）→ 网络。
+- **AppCache 时代**：命中离线缓存直接用 → NETWORK 白名单走网络 → FALLBACK 兜底，全程无代码参与。
+
+### 何时清：配额、驱逐与持久化
+
+- **统一配额**：Cache API 与 IndexedDB 纳入统一的同源存储配额（localStorage 通常仍限 5MB 左右）；配额大小由浏览器按磁盘策略决定，`navigator.storage.estimate()` 可查询 usage 与 quota。
+- **best-effort 驱逐**：默认存储都是 best-effort——磁盘吃紧时浏览器可自动清理，Chrome 按「最近最少使用的源」优先驱逐。
+- **申请持久化**：`navigator.storage.persist()` 通过后免除自动驱逐；用户手动「清除网站数据」仍会全清。DevTools 的 Application 面板可逐项查看与清理各层存储。
+
+---
+
+## 你的回答
+
+HTML5 里面的缓存主要分为两种：
+
+1. **App Cache（已废弃）**
+   它是通过在 manifest 文件里面声明一些静态资源做缓存。当浏览器首次访问时，会把这些资源下载并缓存下来；下次访问时，会优先使用本地缓存，并且会在后台比对 manifest 文件，如果有文件更新才会重新拉取更新。它的生效时间是在下一次访问页面时才会生效。并且在缓存文件时，只要其中另一个文件下载失败，都会兜底走到旧的缓存。
+
+2. **Service Worker 和 Cache API（更现代化的方案）**
+   这是更现代化的缓存方案，利用 Service Worker 拦截网络请求，结合 Cache API 做一些静态资源的缓存。
+
+另外，这两者都是对静态资源的缓存。对于数据上的缓存，则提供了 Web Storage API，包括 Local Storage、Session Storage 以及 IndexedDB（用于存储大文件或数据量较大的情况）。
+
+## 口述点评
+
+**评分：7/10**
+
+**总体评价**：主线稳——AppCache 的原理链路（首次下载缓存 → 下次优先用缓存 → 后台比对 manifest → 下次访问才生效 → 任一文件失败沿用旧缓存）基本讲全，「资源离线 vs 数据离线」的分层意识也有。失分集中在两块：「怎么使用」整块缺失，Service Worker 只给了一句是什么。
+
+- **「怎么使用」没讲**：题干一半在问使用——manifest 的 CACHE / NETWORK / FALLBACK 三段结构和 `<html manifest="...">` 的关联一句没提；Service Worker 的注册（需 HTTPS 或 localhost）和 install / fetch / activate 三个事件也没讲。
+- **Service Worker 原理太薄**：只说了「拦截请求 + 缓存静态资源」，现代方案的核心卖点没出现——缓存策略可编程（缓存优先 / 网络优先 / stale-while-revalidate 自由组合）、更新机制（逐字节比对 sw.js，`skipWaiting()` + `clients.claim()` 可即时接管，正好对照 AppCache 的「慢一拍」）。
+- **术语小误**：IndexedDB 不属于 Web Storage API——Web Storage 特指 localStorage / sessionStorage，IndexedDB 是独立的异步、事务型数据库，说「Web Storage API 包括 IndexedDB」会被较真的面试官抓住；另外口述里「其中**另一个**文件下载失败」应为「**任意一个**文件」，现场表达注意。
+- **防追问储备**：数据侧记两个细节防追问——localStorage 约 5MB、同步接口、只能存字符串；IndexedDB 大容量、异步事务型、可存对象和文件。

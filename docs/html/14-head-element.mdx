@@ -1,0 +1,146 @@
+# 14. head 标签有什么作用？其中什么标签必不可少？
+
+## 1. head 的作用：文档元信息的容器
+
+`<head>` 是 `<html>` 下的第一个子元素，用来放**文档的元信息（metadata）**——描述「这个文档是谁、怎么解析、依赖什么资源」的信息，而不是「页面长什么样」的内容。
+
+几个关键定位：
+
+- **内容不参与页面渲染**（唯一的例外是 `<title>` 的文本会显示在浏览器标签页上），用户看不见它。
+- **它在浏览器开始渲染之前就被消费**：字符编码、视口设置、渲染模式、要加载的样式与脚本，全部在这一阶段确定，因此写错或写慢的代价远高于 body 里的内容。
+- **它是机器（浏览器、爬虫、社交平台、辅助技术）读这个页面的入口**。
+
+它承担的职责可以归成五类：
+
+| 职责 | 典型元素 |
+| --- | --- |
+| **解析与渲染的初始条件** | `<meta charset>`（字符编码）、`<meta name="viewport">`（视口） |
+| **文档身份与描述** | `<title>`、`<meta name="description">`、`<link rel="canonical">` |
+| **资源加载** | `<link rel="stylesheet">`、`<style>`、`<script>`、`<link rel="preload">` / `preconnect` |
+| **SEO 与社交分享** | `<meta name="robots">`、Open Graph（`og:*`）、Twitter Card、结构化数据 |
+| **平台能力与安全** | `<link rel="manifest">`（PWA）、`<meta name="theme-color">`、`<meta http-equiv>` 类指令 |
+
+## 2. head 里能放什么
+
+按规范，`<head>` 允许的子元素是固定的一小撮：
+
+`<title>`、`<base>`、`<link>`、`<style>`、`<script>`、`<noscript>`、`<template>`、`<meta>`
+
+除此之外的元素（`<div>`、`<p>`、`<img>` 甚至裸文本）都是**解析错误**。浏览器的容错行为是：**隐式结束 `<head>`、开启 `<body>`**，把不合法的内容丢进 body 里。所以「明明写在 head 里的东西跑到 body 去了」不是玄学，是解析器在帮你擦屁股。
+
+> 有趣的是，`<head>` 标签本身在 HTML5 中**可以省略**：如果 `head` 的第一个子元素是允许的元素，起始标签可省；结束标签在特定条件下也可省。但省略标签不等于省略内容——`<meta>`、`<title>` 这些依然会被解析进隐式的 head 中。**能省 ≠ 该省**，实践里一律写全。
+
+## 3. 什么是必不可少的
+
+### (1) 规范层面：只有 `<title>`
+
+HTML 规范里，**`<title>` 是唯一被强制要求出现在文档头部的元素**——每个文档必须有且仅有一个（例外：`<iframe srcdoc>` 生成的文档，或标题由更高层协议提供时）。
+
+原因不难理解：`<title>` 是文档的**名称**，标签页、书签、收藏夹、浏览器历史、搜索结果、读屏软件朗读的页面名，全靠它。没有 title 的文档在所有这些场景里都叫「无标题文档」。
+
+它的具体职责（与 `<h1>` 的分工见 [10. title 与 h1 的区别](/html/10-title-vs-h1-b-vs-strong-i-vs-em)）：
+
+- 浏览器标签页 / 窗口标题栏
+- 书签与历史记录的默认名称
+- 搜索结果里那条可点击的标题
+- 读屏软件切换页面时朗读的「页面名称」
+
+### (2) 工程层面：`<meta charset>` 与 `<meta name="viewport">` 事实上必备
+
+规范上它们的强制性是有条件的（编码若已由 HTTP 头 `Content-Type` 声明，`meta charset` 就不是必须），但在真实工程里缺了都会出事：
+
+- **`<meta charset="utf-8">`**：不写就要靠浏览器猜编码，猜错就是中文乱码。而且它**必须出现在文档前 1024 字节内**——放到后面等于没写，浏览器早就开始解析了。
+- **`<meta name="viewport" content="width=device-width, initial-scale=1">`**：不写，移动端浏览器会按 980px 的虚拟视口渲染再整体缩小，页面看起来像被压扁的桌面版，媒体查询也全部失准。
+
+所以面试里的标准答法是分两层：**「规范上只有 `<title>` 是必须的；实践里 `charset` 和 `viewport` 同样不可省」**——这个分层比只答一个更显功力。
+
+## 4. 一份标准的 head
+
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <!-- 1. 编码：必须在前 1024 字节内，越靠前越好 -->
+  <meta charset="UTF-8">
+
+  <!-- 2. 视口：移动端适配的前提 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- 3. 标题：规范要求的唯一必填项 -->
+  <title>面试题库 - 前端学习记录</title>
+
+  <!-- 4. SEO 描述与规范链接 -->
+  <meta name="description" content="前端面试题整理与个人复习记录">
+  <link rel="canonical" href="https://example.com/html/">
+
+  <!-- 5. 资源预连接 / 预加载 -->
+  <link rel="preconnect" href="https://fonts.example.com">
+  <link rel="preload" href="/fonts/main.woff2" as="font" type="font/woff2" crossorigin>
+
+  <!-- 6. 样式 -->
+  <link rel="stylesheet" href="/assets/main.css">
+
+  <!-- 7. 图标与 PWA -->
+  <link rel="icon" href="/favicon.ico">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#ffffff">
+
+  <!-- 8. 社交分享（Open Graph） -->
+  <meta property="og:title" content="面试题库">
+  <meta property="og:description" content="前端面试题整理与个人复习记录">
+  <meta property="og:image" content="https://example.com/og.png">
+
+  <!-- 9. 脚本：无依赖的放 head 并加 defer，或放 body 末尾 -->
+  <script src="/assets/main.js" defer></script>
+</head>
+<body>
+  ...
+</body>
+</html>
+```
+
+**顺序有讲究的部分**：`charset` 最优先（1024 字节限制）；`viewport` 紧随其后；`title` 与 `description` 尽量靠前（部分爬虫只读取文档开头的一段）；样式表在脚本之前，避免脚本执行时还要等样式。
+
+## 5. 常见坑
+
+- **`<meta charset>` 写在 1024 字节之后**：等于没声明。长注释、过长的 `<title>`、超前的脚本都可能把它挤出去。
+- **`viewport` 用了 `user-scalable=no`**：禁用了用户缩放，属于无障碍问题（WCAG 要求允许缩放），现代浏览器也已开始忽略该值。
+- **把 `<style>` 放在 head 最底部、前面压了几个同步脚本**：脚本会阻塞解析，样式迟迟不到，首屏白屏时间被拉长。
+- **head 里塞了 `<div>` 之类的元素**：解析器会提前结束 head，这些元素连同后面的内容都进了 body，DOM 结构与预期不符。
+- **`<title>` 为空或全站相同**：SPA 路由切换时不更新 title，是所有页面在书签和搜索结果里都叫同一个名字——很常见也很掉分。
+- **`<base>` 写错**：它影响文档内**所有**相对 URL（链接、图片、表单提交），一个笔误能让整站资源 404，而且只允许出现一个。
+
+## 6. 高频追问
+
+- **为什么 CSS 放 head、JS 常放 body 末尾？** CSS 放 head 是为了让浏览器尽早下载、避免首屏无样式闪烁（FOUC），同时渲染会等待 CSSOM；脚本会阻塞 HTML 解析（详见 [04. defer 与 async](/html/04-script-defer-vs-async)），放 body 末尾能被解析到时就执行、不阻塞首屏，或用 `defer` / `async` 放在 head。
+- **`preload` / `prefetch` / `preconnect` / `dns-prefetch` 的区别？** `preload` 提前加载**当前页面马上要用的**资源（必须写 `as`，否则只是低优先级抓取）；`prefetch` 预取**下一个页面可能用到的**资源（低优先级、空闲时进行）；`preconnect` 提前完成 DNS + TCP + TLS 握手；`dns-prefetch` 只提前做 DNS 解析（最轻量）。
+- **能用 `<meta>` 设置 CSP 吗？** 可以，用 `<meta http-equiv="Content-Security-Policy">`，但部分指令在 meta 中**无效**（如 `frame-ancestors`、`report-uri`、`sandbox`），因此生产环境仍以 HTTP 响应头为主。
+- **`<noscript>` 在 head 里能放什么？** 只能放 `<link>`、`<style>`、`<meta>`，不能放 `<div>` 之类的内容元素。
+- **head 里的内容会影响 SEO 吗？** 会。`title`、`description`、`canonical`、`robots`、结构化数据都是直接作用于搜索结果的元信息，`<h1>` 之类的影响页面内容权重，两者分工不同。
+
+---
+
+## 你的回答
+
+Head 是存放文档源信息的一个容器，里面常用来放文档的源信息，用户不会看到，因为它不像在页面里面。
+
+1. **常用标签与配置**：
+   Head 里面支持放得最多的就是 title 和 meta 标签。meta 常配置的源信息有：
+   (a) charset="utf-8"：设置页面解析的字符编码。
+   (b) 通过 name 属性配置 meta description、meta keywords，或者是 viewport 做移动端的适配。
+
+2. **依赖资源与加载策略**：
+   另外，Head 也会放一些文档所依赖的资源，比如 link 引用外部 CSS、style 内联写 CSS，或者 script 等等。
+   (a) CSS 的加载：style 常常放在 Head 里面，是为了避免页面无样式闪烁，让 CSS 尽快地加载并构建完整的 CSSOM 对象。
+   (b) JS 的加载：JS 常常放在 body 的最最最尾部，或者通过 defer 属性放在 Head 标签里。这是为了避免 JS 的加载、解析、执行去阻塞页面的渲染，造成页面白屏。
+
+## 口述点评
+
+**评分：6/10**
+
+**总体评价**：第一问答得漂亮——「元信息的容器 + 用户看不见 + CSS 避免 FOUC 并构建 CSSOM + 脚本阻塞解析所以用 defer 或放尾部」，这四句都是机制级的准确表述，不是背概念。但题干第二问「**其中什么标签必不可少**」整段没有回答，这是本题失分的主因（另：口述里的「源信息」应为「元信息 / metadata」）。
+
+- **「必不可少的标签」完全没答**：这是题干的第二个问号，也是这道题真正的区分点。必须分层作答——**规范层面只有 `<title>` 是强制要求的**（每个文档有且仅有一个，它是文档名称、标签页与搜索结果标题的来源）；**工程层面 `<meta charset>` 与 `<meta name="viewport">` 事实上不可省**。只答第一层会被追问「meta 都必要吗」，只答第二层会漏掉规范硬约束。
+- **charset 和 viewport 只讲了「是什么」，没讲「不写会怎样」**：`charset` 必须出现在文档**前 1024 字节内**，放晚了等于没声明，浏览器只能猜编码，猜错就是中文乱码；`viewport` 不写时移动端会按 **980px 虚拟视口**渲染再整体缩小，页面像被压扁的桌面版，媒体查询全部失准。这两句后果一补，说服力完全不同。
+- **`meta keywords` 不该当常用配置讲**：主流搜索引擎早已不再使用它（Google 从未把它当排名因素，Bing 甚至视其为垃圾信号），把它和 description、viewport 并列会显得资料偏旧。SEO 侧现在更重要是 `description`、`canonical`、`robots` 和 Open Graph。
+- **可以再补一层边界**：head 允许的子元素只有 `title`、`base`、`link`、`style`、`script`、`noscript`、`template`、`meta` 这八类；放 `<div>` 之类的元素会被解析器当作 head 结束，内容自动挪进 body——这是「为什么我写在 head 里的东西跑到 body 了」的答案，很实用。
