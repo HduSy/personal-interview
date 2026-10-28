@@ -1,0 +1,468 @@
+import { Mermaid, Sandpack } from '../../components';
+
+# 01. 说说你对盒子模型的理解
+
+## 1. 什么是 CSS 盒模型？
+
+在 CSS 布局中，浏览器将页面中的每一个 HTML 元素都渲染为一个矩形的物理模型，称为**盒模型（Box Model）**。它是网页布局与排版计算的核心基石。
+
+一个完整的盒模型从内到外由四个紧密相扣的区域组成：
+
+<Mermaid chart={`
+flowchart TD
+    subgraph Margin["margin (外边距) - 透明空白区，用于控制与其他元素的间隔距离"]
+        subgraph Border["border (边框) - 围绕内边距和内容的物理边界线条"]
+            subgraph Padding["padding (内边距) - 内容与边框之间的空白防撞区，受 background 影响"]
+                subgraph Content["content (内容区) - 放置文本、图片或子元素的真实区域 (width / height)"]
+                end
+            end
+        end
+    end
+`} />
+
+- **content（内容区）**：呈现文本、图像、视频等子节点的真实区域，由 `width` 和 `height` 等属性控制基础尺寸。
+- **padding（内边距）**：内容区与边框之间的内衬空白距离。背景颜色或背景图片会默认延伸渲染到 padding 区域。
+- **border（边框）**：围绕 padding 和 content 的边界线条，支持配置样式（style）、粗细（width）和颜色（color）。
+- **margin（外边距）**：盒子与其他相邻元素之间的空白隔离区域，自身完全透明，不具备背景色，用于控制元素间的外部间距。
+
+## 2. 标准盒模型 vs IE 怪异盒模型
+
+盒模型最大的考点在于不同渲染模式下 **`width` 和 `height` 属性所圈定的范围差异**。在 CSS3 中，我们可以通过 **`box-sizing`** 属性显式切换这两种模式。
+
+### (1) 标准盒模型（W3C 盒模型，`box-sizing: content-box`）
+
+这是 W3C 规范制定的默认模式：
+- 声明的 `width` 与 `height` **仅仅等于 content 区域的大小**，并不包含 padding 和 border。
+- **盒子实际占据的视觉尺寸（Rendered Width）**：
+  > `视觉宽度 = width + padding-left + padding-right + border-left + border-right`
+- **痛点**：为已有固定宽度的元素增加 padding 或 border 时，盒子会被往外“撑大”，导致原本排列在同一行的并排元素（如两列各 50% 浮动布局）因为总宽度超出容器而折行掉落。
+
+### (2) IE 怪异盒模型（IE 盒模型，`box-sizing: border-box`）
+
+源于早期 IE 浏览器在怪异模式（Quirks Mode）下的实现，CSS3 将其标准化并推广：
+- 声明的 `width` 与 `height` **包含了 content + padding + border 的总和**。
+- **盒子实际占据的视觉尺寸（Rendered Width）** 直接恒等于所声明的 `width`。
+- 内容区尺寸会被动态挤压：
+  > `content-width = width - (padding-left + padding-right) - (border-left + border-right)`
+- **优势**：声明多宽就是多宽，增加内边距或边框只会在内部挤占内容区，绝不会破坏外层网格与栅格排版，具有高度的可预测性。
+
+### 核心特性对比表
+
+| 对比维度 | 标准盒模型 (`content-box`) | IE 怪异盒模型 (`border-box`) |
+| --- | --- | --- |
+| **W3C 规范状态** | 默认行为（浏览器缺省值） | CSS3 纳入规范（需显式声明） |
+| **`width` / `height` 作用域** | 仅作用于 **content** | 涵盖 **content + padding + border** |
+| **视觉总宽度计算** | `width + padding + border` | 恒等于 `width`（只要 padding + border 不超宽） |
+| **加 padding / border 后的表现** | 盒子向外膨胀，容易撑破栅格与换行 | 盒子外部尺寸不变，内部自动收缩内容区 |
+| **现代前端工程推荐度** | 局部特定场景（如只关心纯文字区域） | **工业级推荐（现代 Web 页面全局默认标配）** |
+
+### (3) 实时交互演练：动手调调看（Live Demo）
+
+> 💡 **实操提示**：直接在下方左侧编辑器中修改 `.box` 的 `padding` 或 `width`，实时观察右侧两个盒子的渲染宽度差异！
+
+<Sandpack
+  template="static"
+  height={390}
+  files={{
+    '/index.html': `<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 16px;
+      margin: 0;
+      background: #f8fafc;
+      color: #1e293b;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .box {
+      width: 180px;
+      height: 60px;
+      padding: 20px;
+      border: 6px solid;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    /* 1. 标准盒模型 */
+    .standard {
+      box-sizing: content-box;
+      border-color: #3b82f6;
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+    /* 2. IE 怪异盒模型 */
+    .quirks {
+      box-sizing: border-box;
+      border-color: #10b981;
+      background: #ecfdf5;
+      color: #047857;
+    }
+    .label {
+      font-size: 12px;
+      color: #64748b;
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div>
+      <div class="box standard">content-box</div>
+      <div class="label">声明 180px，加 padding(40px) + border(12px) 后实际宽度 = 232px</div>
+    </div>
+    <div>
+      <div class="box quirks">border-box</div>
+      <div class="label">声明 180px，总宽度恒为 180px，内容区被挤压至 128px</div>
+    </div>
+  </div>
+</body>
+</html>`
+  }}
+/>
+
+## 3. 工程最佳实践与高频进阶考点
+
+### (1) 现代工程的最佳实践：全局重置
+
+在现代 Web 前端开发中，通用实践是重置所有元素为 `border-box`，消除加 padding 撑大盒子的心理负担：
+
+```css
+/* 业内主流重置方案：继承式重置，便于第三方组件内部按需还原 */
+html {
+  box-sizing: border-box;
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
+}
+```
+
+### (2) 外边距塌陷（Margin Collapsing）
+
+外边距塌陷是盒模型中极易让人困惑的特性：**两个或多个块级元素（block）的垂直外边距在满足特定条件时会合并成一个单一外边距**（水平方向绝对不塌陷）。
+
+常见场景及应对方案：
+1. **相邻兄弟元素塌陷**：上下两个兄弟元素的 `margin` 重叠，取两者间绝对值较大的一方。这是 CSS 默认规范行为，符合排版美学。
+2. **父子元素塌陷（Margin 穿透）**：
+   - **产生原因**：当父元素在垂直方向**没有 `border-top`、没有 `padding-top`，且没有形成 BFC** 时，子元素设置 `margin-top` 并不会在父元素内部产生间距，而是“穿透”父元素直接作用于外层，将父元素连同子元素一起拉下来（父子顶部依然紧紧贴在一起）。
+   - **代码复现（穿透现象）**：
+     ```html
+     <!-- 期望效果：子元素在父元素内部距顶 30px -->
+     <!-- 实际结果：父子顶部依然紧贴，父元素整体向下移动了 30px（穿透） -->
+     <div class="parent">
+       <div class="child">子元素</div>
+     </div>
+
+     <style>
+     .parent {
+       background-color: #fecdd3; /* 粉色父级 */
+       height: 100px;
+     }
+     .child {
+       margin-top: 30px;          /* 穿透到了 parent 外部！ */
+       background-color: #3b82f6; /* 蓝色子级 */
+       height: 40px;
+     }
+     </style>
+     ```
+   - **4 种主流解决方案对比**：
+     1. **`display: flow-root`（现代前端最推荐）**：使父元素创建无任何视觉副作用的全新 BFC，彻底阻隔外边距穿透；
+     2. **`overflow: hidden`（传统经典 BFC 方案）**：触发父级 BFC，但若有浮层/下拉菜单超出父级可能会被意外裁剪；
+     3. **增加透明上边框**：给父元素加 `border-top: 1px solid transparent`（阻断父子 margin 接触）；
+     4. **增加微量内边距**：给父元素加 `padding-top: 1px`。
+
+#### 实时交互演练：父子 Margin 穿透与修复验证（Live Demo）
+
+> 💡 **实操提示**：在左侧修改 `.parent-collapse`，尝试给它加上 `display: flow-root;` 或 `overflow: hidden;`，观察左侧红框中子元素是否成功在内部隔开 30px 间距。
+
+<Sandpack
+  template="static"
+  height={360}
+  files={{
+    '/index.html': `<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 16px;
+      margin: 0;
+      background: #f8fafc;
+      color: #1e293b;
+    }
+    .demo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .col-title {
+      font-size: 13px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    /* 灰色虚线框代表父元素原本应该在的起始基准线 */
+    .benchmark-wrapper {
+      background: #e2e8f0;
+      border-top: 2px dashed #94a3b8;
+    }
+    /* 1. 穿透发生：父级没有 border/padding/BFC */
+    .parent-collapse {
+      background: #fecdd3;
+      /* 试着在此处解除下一行的注释进行修复： */
+      /* display: flow-root; */
+    }
+    /* 2. 已修复：开启 BFC 阻断穿透 */
+    .parent-fixed {
+      background: #bbf7d0;
+      display: flow-root; /* 阻断外边距穿透 */
+    }
+    .child {
+      margin-top: 30px;
+      height: 40px;
+      background: #2563eb;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .tip {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-grid">
+    <div>
+      <div class="col-title" style="color: #e11d48;">❌ 发生穿透（父子紧贴）</div>
+      <div class="benchmark-wrapper">
+        <div class="parent-collapse">
+          <div class="child">margin-top: 30px</div>
+        </div>
+      </div>
+      <div class="tip">30px 穿透到父元素外，导致父元素脱离虚线基准线整体下移，父子依然紧贴。</div>
+    </div>
+    <div>
+      <div class="col-title" style="color: #16a34a;">✅ 修复后（flow-root）</div>
+      <div class="benchmark-wrapper">
+        <div class="parent-fixed">
+          <div class="child">margin-top: 30px</div>
+        </div>
+      </div>
+      <div class="tip">父元素创建 BFC，30px 外边距留在父元素内部，子元素成功向下隔离。</div>
+    </div>
+  </div>
+</body>
+</html>`
+  }}
+/>
+
+### (3) 行内元素（inline）对盒模型的特殊表现
+
+对于纯行内元素（如 `<span>`、`<a>`）：
+- **宽高属性**：显式设置 `width` 和 `height` 无效。
+- **水平方向**：`margin-left/right`、`padding-left/right`、`border-left/right` 正常生效并占据真实文档流空间。
+- **垂直方向**：
+  - `margin-top/bottom` **完全无效**，不占据空间；
+  - `padding-top/bottom` 和 `border-top/bottom` **可以视觉渲染**（能看到背景色或边框），但**不增加行高、不占据文档流高度**，会与上下行的文字产生视觉重叠遮挡。
+- **如需完整盒模型能力**：应通过 `display: inline-block` 或 `display: block` 转换。
+
+### (4) JS 获取盒模型尺寸的 API 区别
+
+在 DOM 脚本开发与面试中，获取盒子尺寸有 4 个典型 API。它们最大的区别在于**所包含的盒模型层级**以及**是否受 CSS transform 几何缩放影响**。
+
+#### 核心特性对比表
+
+| API | 计算范围 | 包含 border | 包含滚动条 | 包含 margin | 受 transform 缩放影响 | 返回值类型 |
+| --- | --- | :---: | :---: | :---: | :---: | --- |
+| **`clientWidth / clientHeight`** | `content + padding` | ❌ | ❌ (扣除) | ❌ | ❌ | 整数 (`number`) |
+| **`offsetWidth / offsetHeight`** | `content + padding + border` | ✅ | ✅ (计入) | ❌ | ❌ | 整数 (`number`) |
+| **`getBoundingClientRect()`** | `content + padding + border` | ✅ | ✅ (计入) | ❌ | **✅ (缩放)** | 浮点数 (`number`) |
+| **`getComputedStyle().width`** | 取决于 `box-sizing` | 取决于模式 | ❌ | ❌ | ❌ | 带单位字符串 (`"200px"`) |
+
+#### 代码实例对比讲解
+
+假设有如下 CSS 样式的盒子：
+
+```css
+#box {
+  box-sizing: content-box;
+  width: 200px;
+  height: 100px;
+  padding: 20px;
+  border: 10px solid #333;
+  margin: 15px;
+  transform: scale(0.5); /* 缩放为原来的 50% */
+}
+```
+
+各 API 实际获取到的值与底层计算逻辑如下：
+
+```javascript
+const el = document.getElementById('box');
+
+// 1. clientWidth = content(200) + padding(20 * 2) = 240
+console.log(el.clientWidth); // 240 (不含 border，不受 transform 缩放影响)
+
+// 2. offsetWidth = content(200) + padding(20 * 2) + border(10 * 2) = 260
+console.log(el.offsetWidth); // 260 (含 border，四舍五入整数，不受 transform 缩放影响)
+
+// 3. getBoundingClientRect().width = 视觉物理渲染尺寸 = (200 + 40 + 20) * 0.5 = 130
+console.log(el.getBoundingClientRect().width); // 130 (保留浮点精度，会精确反映 transform 缩放！)
+
+// 4. getComputedStyle(el).width = 声明/计算样式
+console.log(window.getComputedStyle(el).width); // "200px" (纯 content 宽度，带 px 字符串)
+```
+
+#### 实时交互演练：API 返回值动态对比（Live Demo）
+
+> 💡 **实操提示**：点击下方沙箱中的 **「切换 box-sizing」** 或 **「切换 scale(0.8)」** 按钮，直观观察 4 个 API 数值的变化情况。注意观察为什么 `offsetWidth` 不变，而 `getBoundingClientRect` 变了！
+
+<Sandpack
+  template="static"
+  height={390}
+  files={{
+    '/index.html': `<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 14px;
+      margin: 0;
+      background: #f8fafc;
+      color: #1e293b;
+      font-size: 13px;
+    }
+    .box-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    #demoBox {
+      box-sizing: content-box;
+      width: 160px;
+      height: 60px;
+      padding: 15px;
+      border: 8px solid #2563eb;
+      margin: 8px 0;
+      background: #dbeafe;
+      color: #1e40af;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s ease;
+      transform-origin: left center;
+    }
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    button {
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 4px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: #334155;
+      transition: all 0.15s;
+    }
+    button:hover {
+      background: #f1f5f9;
+      border-color: #94a3b8;
+    }
+    .metrics {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 12px 14px;
+      border-radius: 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.7;
+    }
+    .val {
+      color: #38bdf8;
+      font-weight: bold;
+    }
+    .comment {
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <div class="box-container">
+    <div class="toolbar">
+      <button onclick="toggleBoxSizing()">切换 box-sizing</button>
+      <button onclick="toggleTransform()">切换 transform: scale(0.8)</button>
+    </div>
+
+    <div id="demoBox">content-box</div>
+
+    <div class="metrics" id="output">
+      正在读取尺寸...
+    </div>
+  </div>
+
+  <script>
+    const box = document.getElementById('demoBox');
+    const output = document.getElementById('output');
+
+    let isBorderBox = false;
+    let isScaled = false;
+
+    function toggleBoxSizing() {
+      isBorderBox = !isBorderBox;
+      box.style.boxSizing = isBorderBox ? 'border-box' : 'content-box';
+      update();
+    }
+
+    function toggleTransform() {
+      isScaled = !isScaled;
+      box.style.transform = isScaled ? 'scale(0.8)' : 'none';
+      update();
+    }
+
+    function update() {
+      const rect = box.getBoundingClientRect();
+      const computed = window.getComputedStyle(box);
+
+      box.textContent = computed.boxSizing;
+
+      output.innerHTML = [
+        '当前状态: box-sizing = <span class="val">' + computed.boxSizing + '</span> | transform = <span class="val">' + computed.transform + '</span>',
+        '-------------------------------------------------------',
+        '1. clientWidth:                 <span class="val">' + box.clientWidth + 'px</span>  <span class="comment">// content + padding</span>',
+        '2. offsetWidth:                 <span class="val">' + box.offsetWidth + 'px</span>  <span class="comment">// content + padding + border (四舍五入整数)</span>',
+        '3. getBoundingClientRect.width: <span class="val">' + rect.width.toFixed(2) + 'px</span>  <span class="comment">// 视口渲染尺寸 (精准浮点，受缩放影响)</span>',
+        '4. getComputedStyle.width:      <span class="val">"' + computed.width + '"</span>  <span class="comment">// CSS 解析计算值 (字符串)</span>'
+      ].join('<br>');
+    }
+
+    update();
+  </script>
+</body>
+</html>`
+  }}
+/>
+
+---
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）
