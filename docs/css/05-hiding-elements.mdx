@@ -1,0 +1,174 @@
+import { Mermaid } from '../../components';
+
+# 05. 隐藏页面元素的方式有哪些？区别是什么？
+
+## 1. 理解框架：一个元素同时活在这五棵「树」里
+
+隐藏方式之所以五花八门，是因为「隐藏」在不同层含义完全不同。一个元素同时存在于：
+
+| 层 | 含义 | 藏掉它的手段 |
+| --- | --- | --- |
+| **DOM 树** | 节点还在不在文档里 | `removeChild` / `v-if` 卸载 |
+| **渲染树（Render Tree）** | 浏览器要不要为它生成盒子 | `display: none` |
+| **布局（Layout）** | 它参不参与占位与排版 | `display: none`、`height: 0`、`position: absolute` |
+| **绘制（Paint）** | 它画不画到屏幕上 | `visibility: hidden`、`opacity: 0` |
+| **无障碍树（A11y Tree）** | 读屏软件能不能感知到它 | `display: none`、`visibility: hidden`、`aria-hidden` |
+
+**面试时先抛出这个「多棵树」的框架，再逐个方案对号入座**——比罗列属性名高一个层级，也天然解释了所有差异的来源。
+
+## 2. 核心对比表
+
+| 方式 | 占布局空间 | 可点击 / 可聚焦 | 读屏可读 | 可过渡动画 | 说明 |
+| --- | --- | --- | --- | --- | --- |
+| `display: none` | ❌ | ❌ | ❌ | ⚠️ 需 `allow-discrete` | 从渲染树移除，最彻底 |
+| `visibility: hidden` | ✅ | ❌ | ❌ | ✅ | 保留盒子，不绘制 |
+| `opacity: 0` | ✅ | **✅** | **✅** | ✅ | 透明但仍可交互，坑最多 |
+| `position: absolute; left: -9999px` | ✅（跑到布局外） | ✅ | ✅ | ❌ | 视觉隐藏、语义保留 |
+| `clip` / `clip-path` + 1px | ✅（1px） | ✅ | ✅ | ❌ | `.sr-only` 标准写法 |
+| `height: 0; overflow: hidden` | ❌（塌缩） | **✅** | ✅ | ✅ | 折叠动画常用，焦点坑 |
+| `transform: scale(0)` | ✅ | ✅ | ✅ | ✅ | 仍在布局中 |
+| `hidden` 属性 | ❌ | ❌ | ❌ | ❌ | 等价 `display: none`，可被 CSS 覆盖 |
+| `content-visibility: hidden` | ❌ | ❌ | ❌ | ❌ | 跳过渲染但保留状态，恢复快 |
+| `aria-hidden="true"` | ✅ | ✅ | ❌ | — | 只管无障碍，不影响视觉 |
+
+## 3. CSS 方案详解
+
+### (1) `display: none` —— 最彻底
+
+```css
+.hide { display: none; }
+```
+
+- **不生成盒子**，完全退出渲染树：不占位、不绘制、不可交互、不进无障碍树。
+- 会触发**重排（reflow）**，因为兄弟元素的布局要重算——频繁切换时代价最高。
+- 子元素无法「复活」：父级 `display: none` 时，子元素写 `display: block` 也没用。
+- **不能直接过渡**（老写法）。现代可以配合离散过渡：
+
+  ```css
+  .panel {
+    transition: opacity .3s, display .3s;
+    transition-behavior: allow-discrete;   /* Chrome 117+ */
+  }
+  ```
+
+### (2) `visibility: hidden` —— 占位，但不画
+
+```css
+.invisible { visibility: hidden; }
+```
+
+- 盒子**仍然生成并参与布局**，只是不绘制。
+- 不可点击、不可聚焦、读屏也不读。
+- **可继承，且子元素能覆盖回来**——这是它和 `display: none` 最本质的区别：
+
+  ```css
+  .parent { visibility: hidden; }
+  .parent .child { visibility: visible; }   /* 子元素依然可见 ✅ */
+  ```
+
+- **可以过渡**（`visibility` 是离散过渡，常用于「淡出后再真正隐藏」）。
+
+### (3) `opacity: 0` —— 只是变透明
+
+```css
+.faded { opacity: 0; }
+```
+
+- 元素**完整存在**：占位、可点击、可聚焦、**读屏会正常朗读**。
+- 最平滑的可动画属性，做淡入淡出首选。
+- **坑最多**：看不见但能点，极易做成「隐形按钮」事故；同时它会创建**层叠上下文**，可能让 `z-index` 表现异常。
+
+### (4) 视觉隐藏但保留无障碍：`.sr-only`
+
+只写 `position: absolute; left: -9999px` 是经典做法，元素跑到屏幕外、仍在无障碍树里、仍可聚焦。但更稳的标准写法是：
+
+```css
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);        /* 兼容旧浏览器 */
+  clip-path: inset(50%);         /* 现代写法 */
+  white-space: nowrap;
+  border: 0;
+}
+```
+
+用途：给读屏用户提供视觉上看不到的补充文本，比如「跳转到主内容」链接、图标按钮的文字说明。
+
+### (5) `height: 0; overflow: hidden` —— 折叠动画
+
+```css
+.collapsed { height: 0; overflow: hidden; transition: height .3s; }
+```
+
+- 视觉上塌缩，但**内容仍在 DOM 与无障碍树里**。
+- 致命坑：**子元素依然可聚焦**，用户 Tab 到看不见的链接时页面会莫名滚动跳动。需要配合 `visibility: hidden`、`inert` 或 JS 禁用。
+
+### (6) `transform: scale(0)`
+
+元素缩成一个点，但仍**占据原本的布局空间**（这是最反直觉的点），也仍可聚焦、读屏可读。做弹窗缩放入场动画时，通常要配合 `visibility` 一起用。
+
+### (7) `content-visibility: hidden`（较新）
+
+跳过子树渲染但**保留渲染状态**，再次显示时比重建更快，适合频繁切换的大块内容。代价是不进无障碍树、`Ctrl+F` 也搜不到。
+
+## 4. HTML 侧的方式
+
+- **`hidden` 属性**：`<div hidden>`，浏览器默认样式等价于 `display: none`。
+
+  ```css
+  /* ⚠️ CSS 会覆盖它——这是「hidden 不生效」最常见的原因 */
+  div { display: block; }
+  ```
+
+  新变体 **`hidden="until-found"`**：内容对 `Ctrl+F` 与页面内查找可见，被搜到时会自动展开并触发 `beforematch` 事件，适合折叠面板、FAQ。
+
+- **`<input type="hidden">`**：不渲染、不可见，仅用于承载表单数据并随表单提交。
+
+- **`<template>`**：内容不渲染、不执行、保持惰性（inert），本质是「待用模板」而非「隐藏的元素」。
+
+## 5. 选择指南
+
+<Mermaid chart={`
+flowchart TD
+    Q["要把元素藏起来"] --> A{"读屏用户还需要读到它？"}
+    A -- "是" --> SR["sr-only / clip 方案<br/>视觉隐藏、语义保留"]
+    A -- "否" --> B{"需要过渡动画？"}
+    B -- "是" --> C{"动画过程中要点得到吗？"}
+    C -- "是" --> OP["opacity 过渡 + 结束后设 visibility: hidden"]
+    C -- "否" --> VH["visibility / height 过渡"]
+    B -- "否" --> DN["display: none 或 hidden 属性"]
+`} />
+
+一句话选择原则：
+
+- **彻底不要了** → `display: none`（或 `hidden`）。
+- **要淡入淡出** → `opacity` + `visibility`（过渡结束后设 `visibility: hidden`，既保住动画又让元素不可交互）。
+- **给读屏但不想让人看见** → `.sr-only`。
+- **只是暂时不可用/不该被交互** → `inert` 属性（不是视觉隐藏，但常和它配合）。
+
+## 6. 五个高频坑
+
+1. **`opacity: 0` 的元素还能点、还能 Tab 到**——视觉消失不等于功能消失，这是最危险的一个。
+2. **`visibility: hidden` 会被子元素 `visible` 覆盖回来**——有人以为是 bug，其实是继承机制。
+3. **`height: 0; overflow: hidden` 里藏的可聚焦元素会导致页面滚动跳动**——折叠菜单的经典事故。
+4. **`hidden` 属性可以被 CSS 的 `display` 覆盖**——组件库全局写 `div { display: block }` 就会让 `hidden` 失效。
+5. **`aria-hidden="true"` 只管无障碍，不管视觉**——它和 CSS 隐藏是两个维度的东西，经常需要成对使用；反过来，元素若仍可聚焦却加了 `aria-hidden`，会造成「焦点落在隐形内容上」的严重无障碍缺陷。
+
+## 7. 面试速答版
+
+> 隐藏元素的方式可以按「它藏掉了哪一层」来分。`display: none` 最彻底，元素直接不生成盒子——不占位、不可交互、读屏不读，但会触发重排；`visibility: hidden` 保留占位只是不绘制，而且它可继承、子元素能覆盖回 `visible`，还能做过渡；`opacity: 0` 只是透明，元素仍然占位、**仍可点击和聚焦、读屏也会读**，坑最多。
+>
+> 如果目的是「视觉隐藏但保留无障碍」，用 `position: absolute` 负偏移或 `clip-path` 的 `.sr-only` 方案；如果是为了折叠动画，用 `height: 0 + overflow: hidden` 但要处理子元素可聚焦的问题。
+>
+> 另外还有 HTML 的 `hidden` 属性（等价 `display: none`，但能被 CSS 覆盖）和 `content-visibility: hidden`（跳过渲染、保留状态）。核心判断维度是四个：**占不占布局、能不能交互、读屏读不读、能不能动画**。
+
+---
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）
