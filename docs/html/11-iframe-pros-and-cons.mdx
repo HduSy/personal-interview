@@ -2,7 +2,7 @@
 
 ## 1. 是什么与优点
 
-iframe 是嵌套浏览上下文，内部有独立的 `window`、`document`、DOM、样式、JS 和 history。
+iframe 是嵌套浏览上下文，内部有独立的 `window`、`document`、DOM、样式和 JS。
 
 | 属性 | 作用 |
 | --- | --- |
@@ -16,7 +16,7 @@ iframe 是嵌套浏览上下文，内部有独立的 `window`、`document`、DOM
 
 核心优势是文档级隔离和零集成成本：
 
-- **隔离最彻底**：父页面 CSS 无法命中内部元素，样式不外泄；全局变量、定时器互不干扰。需要 JS 全局隔离时基本只能用 iframe。
+- **隔离最彻底**：父页面 CSS 无法命中内部元素，样式不外泄；全局变量、定时器互不干扰。
 
   | 方案 | DOM 隔离 | 样式隔离 | JS 全局隔离 |
   | --- | --- | --- | --- |
@@ -24,34 +24,31 @@ iframe 是嵌套浏览上下文，内部有独立的 `window`、`document`、DOM
   | **Shadow DOM** | ✅ 影子树 | ✅ 样式作用域 | ❌ 共享同一个 `window` |
   | **CSS Module / Scoped** | ❌ | ⚠️ 仅局部分隔 | ❌ |
 
-- **天然的安全边界**：不同源受同源策略保护，父子读不到对方 DOM 与存储，只能 `postMessage` 通信；`sandbox` 可压低权限。
-- **接入第三方成本最低**：广告、地图、视频、支付只需一个 URL，无需 SDK 或构建集成。
-- **承载异构与遗留应用**：老系统可整块嵌入；微前端也依赖 iframe 做隔离。
-- **声明式能力**：`loading="lazy"` 延迟加载；`srcdoc` + `sandbox` 做代码沙箱预览；`allow` 按需开放设备权限。
+- **安全边界**：不同源受同源策略保护，父子读不到对方 DOM 与存储。
+- **第三方接入**：广告、地图、视频、支付只需一个 URL，无需 SDK 或构建。
+- **遗留应用**：老系统可整块嵌入；微前端也依赖 iframe。
+- **声明式能力**：`loading="lazy"` 延迟加载；`srcdoc` + `sandbox` 做沙箱预览；`allow` 开放设备权限。
 
 ## 2. 缺点
 
-缺点集中在性能、SEO、可访问性、布局、通信和调试。
+缺点集中在性能、SEO、可访问性、布局和通信。
 
-- **性能开销大**：每个 iframe 是完整文档，有独立渲染树和 JS 上下文；同源 iframe 与父页面共享渲染进程，繁重 JS 拖慢主线程；跨源独立进程，占用更高；还会推迟 `window.load`。
-- **SEO 不友好**：内容归属被嵌入的 URL，父页面拿不到权重，爬虫抓取不稳定，正文不能放 iframe。
-- **可访问性差**：屏幕阅读器在边界出现上下文断层，必须加 `title`。
-- **布局割裂**：高度无法自适应，需 `postMessage` / `ResizeObserver` 回传；`position: fixed` 相对 iframe 视口，弹窗错位；滚动、全屏受限。
-- **跨域通信困难**：跨域只能 `postMessage`，要校验 `event.origin`；第三方 Cookie 与存储分区让登录态、埋点难维持。
-- **调试成本高**：跨源日志受限；SPA 中 iframe 路由会与 history 冲突。
+- **性能**：每个 iframe 是完整文档，有独立渲染树和 JS 上下文；同源与父页面共享渲染进程，繁重 JS 拖慢主线程；跨源在站点隔离下独立进程，占用更高。
+- **SEO**：内容归属被嵌入的 URL，父页面拿不到权重。
+- **可访问性**：屏幕阅读器在边界出现上下文断层，必须加 `title`。
+- **布局**：高度无法自适应，需 `postMessage` 回传；`position: fixed` 相对 iframe 视口，弹窗错位。
+- **通信**：跨域只能 `postMessage` 并校验 `event.origin`；第三方 Cookie 与存储分区让登录态难维持。
 
 ## 3. 安全风险与防护
 
 安全风险双向存在：
 
 - **向外**：嵌入不可信来源，钓鱼、诱导点击由你承担。
-- **向内**：被别人的 iframe 套住会发生点击劫持，用 `X-Frame-Options` 或 `frame-ancestors` 防御。
-- 其他攻击面：`window.name` 跨域残留、`document.domain` 放宽同源也是攻击面。
+- **向内**：点击劫持用 `X-Frame-Options` 或 `frame-ancestors` 防御。
 
 `sandbox` 是最有效的限制：
 
 ```html
-<!-- 失效条件：同时给 allow-scripts 与 allow-same-origin，且父子同源时，脚本可操作父页面 DOM，沙箱失效 -->
 <!-- 空值 = 开启全部限制：子文档变成不透明源，脚本/表单/弹窗/顶层跳转全部禁止 -->
 <iframe src="https://third-party.example" sandbox title="第三方内容"></iframe>
 

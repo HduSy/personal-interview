@@ -86,7 +86,7 @@
 }
 ```
 
-`translate` 百分比参照元素自身尺寸，不需要知道宽高。`transform` 会创建层叠上下文，半像素偏移会模糊。
+`translate` 百分比参照自身尺寸，无需知道宽高；`transform` 创建层叠上下文，半像素偏移模糊。
 
 ### (2) Flexbox
 
@@ -98,7 +98,7 @@
 }
 ```
 
-弹性布局分配剩余空间，子元素尺寸由内容决定。`margin: auto` 吸收自由空间；块级流中垂直 auto margin 为 0。
+弹性布局分配空间。`margin: auto` 吸收自由空间；块级流垂直 auto margin 为 0。
 
 ### (3) Grid
 
@@ -109,7 +109,7 @@
 }
 ```
 
-`place-items` 是 `align-items` + `justify-items` 的简写；`place-self: center` 或 `margin: auto` 也可行。
+`place-items` 是 `align-items` 与 `justify-items` 的合写；`place-self: center` 或 `margin: auto` 均可。
 
 ### (4) `display: table-cell`
 
@@ -125,7 +125,7 @@
 .child { display: inline-block; }
 ```
 
-垂直靠 `vertical-align`，水平靠 `text-align` + `inline-block`，无需定尺寸。代价是 `margin` 失效、宽度行为改变。
+垂直靠 `vertical-align`，水平靠 `text-align` + `inline-block`，无需定尺寸；代价是 `margin` 失效。
 
 ### (5) 块级 `align-content`
 
@@ -136,11 +136,11 @@
 }
 ```
 
-块级容器可用 `align-content: center`，不需要额外 `display`；旧版浏览器不支持。
+块级容器也可用 `align-content: center`，无需额外 `display`。
 
 ## 4. 对比与常见失败点
 
-需要定尺寸的方案兼容老浏览器；不依赖尺寸的方案更灵活，现代项目优先 Flex/Grid。
+定尺寸方案兼容老浏览器；不定尺寸用 Flex/Grid。
 
 | 方案 | 需要定宽高 | 是否脱离文档流 | 浏览器支持 | 适用场景 |
 | --- | --- | --- | --- | --- |
@@ -154,15 +154,13 @@
 | `table-cell` | ❌ | ❌ | 全部 | 兼容性要求极高的老项目 |
 | 块级 `align-content` | ❌ | ❌ | 2024 年后新版本 | 简单块级垂直居中 |
 
-常见失败点：
-
-1. **高度塌陷**：绝对定位子元素脱离文档流，父元素无其他内容时高度为 0。
-2. **定位上下文缺失**：父元素为 `static` 时会参照更远的已定位祖先或初始包含块。
-3. **`inset: 0 + margin: auto` 在 `width: auto` 时拉伸填满**，不是收缩居中。
-4. **`transform` 半像素模糊**：可设偶数尺寸或改用 Flex/Grid。
-5. **`line-height` 继承**：多行文本需在子元素重置。
-6. **块级垂直 `margin: auto` 无效**：计算为 0，必须先设 `display: flex/grid`。
-7. **`table-cell` 改变布局参与方式**：`margin` 失效，宽度行为改变。
+1. **高度塌陷**：子元素脱离文档流，父元素无内容时高度为 0。
+2. **定位上下文缺失**：父元素 `static` 时参照更远的已定位祖先或初始包含块。
+3. **`inset:0 + margin:auto` 在 `width:auto` 时拉伸填满**。
+4. **`transform` 半像素模糊**：设偶数尺寸或用 Flex/Grid。
+5. **`line-height` 继承**：多行文本需重置。
+6. **块级垂直 `margin: auto` 无效**：需 `display: flex/grid`。
+7. **`table-cell` 改变布局**：`margin` 失效。
 
 ---
 
