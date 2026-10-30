@@ -2,13 +2,9 @@ import { Mermaid } from '../../components';
 
 # 01. 对 Web Worker 的理解
 
-## 1. 为什么需要 Web Worker？（背景与解决的核心痛点）
+## 1. 需要 Web Worker 的原因
 
-JavaScript 语言的核心设计是**单线程**的，且在浏览器渲染引擎中，**JavaScript 引擎线程与 GUI 渲染线程是互斥的**：
-- 当主线程执行一个高耗时的计算任务（如大型算法、大文件切片哈希、海量数据清洗、图像/视频滤镜处理）时，事件循环（Event Loop）会被彻底阻塞；
-- 在此期间，页面无法响应用户的点击、滚动等交互事件，浏览器也无法按时进行每一帧（16.6ms）的画面重绘，直接导致页面**卡顿掉帧、无响应甚至假死（Jank）**。
-
-为了解决这一痛点，HTML5 引入了 **Web Worker** 规范。它允许 JavaScript 在主线程之外，**开辟一个独立的后台线程来并行执行耗时代码**。后台线程承担繁重的计算任务，主线程则专注于保持 UI 的流畅渲染与用户交互。
+JavaScript 是单线程的，浏览器中 JS 引擎线程与 GUI 渲染线程互斥。主线程执行高耗时计算（大型算法、大文件切片哈希、海量数据清洗、图像/视频滤镜）时，事件循环被阻塞，页面无法响应点击、滚动，也无法按时完成每帧 16.6ms 的重绘，导致卡顿、无响应甚至假死。Web Worker 允许在主线程之外创建独立后台线程并行执行耗时任务，主线程专注 UI 渲染和用户交互。
 
 <Mermaid chart={`
 sequenceDiagram
@@ -23,20 +19,17 @@ sequenceDiagram
     Note over Main: onmessage 接收数据并局部更新 UI
 `} />
 
-## 2. Web Worker 的通信机制与底层特性
+## 2. 通信机制与数据传递
 
-### (1) 双向通信与数据传递机制
+主线程与 Worker 内存隔离，不能直接共享同一变量，只能通过消息传递通信：发送方 `postMessage(data)`，接收方监听 `onmessage`。三种传递方式：
 
-主线程与 Worker 线程之间处于**严格的内存物理隔离状态**，不能直接共享访问同一个内存变量，只能通过消息传递进行通信：
-- **API 接口**：发送方使用 `postMessage(data)` 发送数据，接收方通过 `onmessage` 事件监听接收数据。
-- **三种数据传递方式**：
-  1. **结构化克隆（Structured Clone）**：默认方式。底层对数据进行深度拷贝（Deep Copy），两端各持有一份互不影响的独立数据。如果传递几百 MB 的大对象，序列化与反序列化会有一定性能开销。
-  2. **可转移对象（Transferable Objects）**：针对 `ArrayBuffer`、`MessagePort`、`ImageBitmap` 等大二进制数据，通过**零拷贝转移内存所有权**（原线程直接丧失对该数据的控制权，变成 0 字节）。耗时几乎为 0ms，性能极高。
-  3. **共享内存（SharedArrayBuffer + Atomics）**：允许多线程真正共享同一块内存区域，通过 `Atomics` 原子操作避免数据竞态（Race Condition）。注：受 Spectre 漏洞影响，现代浏览器开启此能力需在服务端配置 COOP 和 COEP 响应头。
+1. **结构化克隆**：默认方式，深拷贝数据，两端各持有一份互不影响的数据；传递几百 MB 的大对象会有序列化和反序列化开销。
+2. **可转移对象**：针对 `ArrayBuffer`、`MessagePort`、`ImageBitmap` 等大二进制数据，零拷贝转移内存所有权，原线程数据变为 0 字节，耗时几乎为 0。
+3. **共享内存**：`SharedArrayBuffer` + `Atomics`，多线程共享同一块内存，`Atomics` 原子操作避免数据竞态。受 Spectre 漏洞影响，现代浏览器需在服务端配置 COOP 和 COEP 响应头才能启用。
 
-### (2) Worker 的运行环境与安全沙箱限制（高频面试考点）
+## 3. 运行环境与安全沙箱限制
 
-Worker 线程运行在特殊的全局上下文 **`DedicatedWorkerGlobalScope`**（顶层对象是 `self`，而非 `window`）中，为了确保线程安全，浏览器施加了严苛的安全沙箱限制：
+Worker 运行在 `DedicatedWorkerGlobalScope` 中，顶层对象是 `self` 而非 `window`，并受以下限制：
 
 | 权限维度 | Worker 内部状态 | 具体说明 |
 | --- | --- | --- |
@@ -47,22 +40,22 @@ Worker 线程运行在特殊的全局上下文 **`DedicatedWorkerGlobalScope`**�
 | **同源策略限制** | **严格同源** | Worker 脚本文件的 URL 必须与主页面同源（本地测试不能用 `file://` 协议，跨域脚本需通过 Blob URL 转换绕过） |
 | **系统资源消耗** | **需手动销毁** | 每个 Worker 对应一个真实的操作系统线程，大量创建会迅速耗尽 CPU 和内存。使用完毕必须在主线程调用 `worker.terminate()` 或在内部调用 `self.close()` 主动释放 |
 
-## 3. 常见 Worker 类型与典型实战场景
+## 4. Worker 类型与应用场景
 
-### 核心家族分类
+Web Worker 分为三种：
 
-1. **Dedicated Worker（专用 Worker）**：最常用，仅归属于创建它的单个页面；页面关闭，Worker 随之销毁。
-2. **Shared Worker（共享 Worker）**：可被同源下的多个浏览器标签页、iframe 共同连接使用，常用于多标签页之间的数据同步、跨页面 WebSocket 单连接复用。
-3. **Service Worker（服务工作线程）**：常驻后台充当浏览器与网络之间的代理，用于拦截网络请求、实现离线缓存（PWA）、离线离网运行与后台推送。
+1. **Dedicated Worker（专用 Worker）**：仅归属于创建它的单个页面，页面关闭即销毁，最常用。
+2. **Shared Worker（共享 Worker）**：同源下多个标签页、iframe 可共同连接，用于多标签页数据同步、跨页面 WebSocket 单连接复用。
+3. **Service Worker（服务工作线程）**：常驻后台代理浏览器与网络之间的请求，用于拦截请求、离线缓存（PWA）和后台推送。
 
-### 工业级典型应用场景
+典型场景：
 
-1. **超大文件分片与哈希计算**：如几 GB 视频上传前的前端分片切片，以及使用 SparkMD5 计算文件完整性哈希值，交给 Worker 线程计算，主线程上传进度条丝滑不卡；
-2. **前端海量数据导出与报表解析**：前端直接解析包含几十万行的复杂 Excel/CSV 文件并进行多维排序筛选；
-3. **Canvas 离线图像与音视频滤镜渲染**：结合 `OffscreenCanvas`（离屏画布），将复杂的 WebGL/2D 图像实时渲染完全丢到 Worker 后台线程跑；
-4. **前端语法高亮与代码格式化**：如 Monaco Editor（VS Code 网页版）的语法解析器就是放在 Web Worker 里面异步处理。
+1. **超大文件分片与哈希**：几 GB 视频上传前的前端切片，以及用 SparkMD5 计算文件完整性哈希。
+2. **前端海量数据导出与报表解析**：直接解析几十万行的 Excel/CSV 并做多维排序筛选。
+3. **Canvas 图像与音视频滤镜**：结合 `OffscreenCanvas`，把 WebGL/2D 渲染放到 Worker 后台线程。
+4. **语法高亮与代码格式化**：Monaco Editor 的语法解析器放在 Web Worker 中异步处理。
 
-## 4. 最小化代码实战模板
+## 5. 最小化代码模板
 
 ```javascript
 // main.js (主线程)

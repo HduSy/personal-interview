@@ -1,0 +1,171 @@
+# 06. 元素水平垂直居中的方法有哪些？如果元素不定宽高呢？
+
+## 1. 两类方案
+
+居中方案按「谁分配父容器的剩余空间」分两类：
+
+- **需要确定尺寸**：负 margin、`inset: 0` + `margin: auto`、`line-height`、`calc` 计算偏移。
+- **不依赖尺寸**：`transform` 百分比位移、Flexbox、Grid、`table-cell`、块级 `align-content`。
+
+「元素不定宽高」只能用第二类。
+
+## 2. 需要确定尺寸的方案
+
+### (1) 绝对定位 + 负 margin
+
+```css
+.parent { position: relative; }
+
+.child {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200px;
+  height: 100px;
+  margin-top: -50px;    /* 高度的一半 */
+  margin-left: -100px;  /* 宽度的一半 */
+}
+```
+
+`top/left: 50%` 把元素左上角移到父容器中心，负 margin 按自身尺寸的一半拉回。数值固定，尺寸一变就要同步改。
+
+### (2) 绝对定位 + `inset: 0` + `margin: auto`
+
+```css
+.parent { position: relative; }
+
+.child {
+  position: absolute;
+  inset: 0;             /* top/right/bottom/left 全为 0 */
+  width: 200px;
+  height: 100px;
+  margin: auto;
+}
+```
+
+四边偏移归零后，剩余空间由 `margin: auto` 平分。要求父元素有定位上下文、子元素确定宽高（`<img>` 等替换元素除外）；只写 `inset: 0` 元素会靠左。
+
+### (3) `line-height` 单行文本
+
+```css
+.parent {
+  height: 100px;
+  line-height: 100px;   /* 与高度相等 */
+  text-align: center;
+}
+```
+
+`line-height` 撑高行盒实现垂直居中。只适合单行，多行会溢出；行高会被子元素继承，需要在子元素上重置。
+
+### (4) `calc` 计算偏移
+
+```css
+.child {
+  position: absolute;
+  top: calc(50% - 50px);    /* 减去自身高度的一半 */
+  left: calc(50% - 100px);
+  width: 200px;
+  height: 100px;
+}
+```
+
+与负 margin 等价，同样必须知道尺寸。
+
+## 3. 不依赖尺寸的方案
+
+### (1) 绝对定位 + `transform`
+
+```css
+.parent { position: relative; }
+
+.child {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+```
+
+`translate` 百分比参照元素自身尺寸，不需要知道宽高。`transform` 会创建层叠上下文，半像素偏移会模糊。
+
+### (2) Flexbox
+
+```css
+.parent {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+```
+
+弹性布局分配剩余空间，子元素尺寸由内容决定。`margin: auto` 吸收自由空间；块级流中垂直 auto margin 为 0。
+
+### (3) Grid
+
+```css
+.parent {
+  display: grid;
+  place-items: center;
+}
+```
+
+`place-items` 是 `align-items` + `justify-items` 的简写；`place-self: center` 或 `margin: auto` 也可行。
+
+### (4) `display: table-cell`
+
+```css
+.parent {
+  display: table-cell;
+  vertical-align: middle;
+  text-align: center;
+  width: 300px;
+  height: 200px;
+}
+
+.child { display: inline-block; }
+```
+
+垂直靠 `vertical-align`，水平靠 `text-align` + `inline-block`，无需定尺寸。代价是 `margin` 失效、宽度行为改变。
+
+### (5) 块级 `align-content`
+
+```css
+.parent {
+  height: 300px;
+  align-content: center;
+}
+```
+
+块级容器可用 `align-content: center`，不需要额外 `display`；旧版浏览器不支持。
+
+## 4. 对比与常见失败点
+
+需要定尺寸的方案兼容老浏览器；不依赖尺寸的方案更灵活，现代项目优先 Flex/Grid。
+
+| 方案 | 需要定宽高 | 是否脱离文档流 | 浏览器支持 | 适用场景 |
+| --- | --- | --- | --- | --- |
+| 绝对定位 + 负 margin | ✅ | ✅ | 全部 | 老项目、尺寸固定 |
+| 绝对定位 + `inset:0` + `margin:auto` | ✅（普通元素） | ✅ | 全部 | 尺寸固定的弹窗/图标 |
+| 绝对定位 + `transform` | ❌ | ✅ | IE9+ | 不定尺寸的浮层、加载动画 |
+| `line-height` | 单行文本 | ❌ | 全部 | 单行文字按钮 |
+| Flexbox | ❌ | ❌ | IE10+（部分属性有前缀） | 现代布局首选 |
+| Flex/Grid + `margin: auto` | ❌ | ❌ | IE11+（Grid 需新版本） | 单个子元素居中 |
+| Grid + `place-items` | ❌ | ❌ | 主流现代浏览器 | 现代布局首选 |
+| `table-cell` | ❌ | ❌ | 全部 | 兼容性要求极高的老项目 |
+| 块级 `align-content` | ❌ | ❌ | 2024 年后新版本 | 简单块级垂直居中 |
+
+常见失败点：
+
+1. **高度塌陷**：绝对定位子元素脱离文档流，父元素无其他内容时高度为 0。
+2. **定位上下文缺失**：父元素为 `static` 时会参照更远的已定位祖先或初始包含块。
+3. **`inset: 0 + margin: auto` 在 `width: auto` 时拉伸填满**，不是收缩居中。
+4. **`transform` 半像素模糊**：可设偶数尺寸或改用 Flex/Grid。
+5. **`line-height` 继承**：多行文本需在子元素重置。
+6. **块级垂直 `margin: auto` 无效**：计算为 0，必须先设 `display: flex/grid`。
+7. **`table-cell` 改变布局参与方式**：`margin` 失效，宽度行为改变。
+
+---
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）

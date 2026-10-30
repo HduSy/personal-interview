@@ -4,22 +4,20 @@ import { Mermaid } from '../../components';
 
 ## 1. 核心模型：三个角色
 
-HTML5 拖放 API 把一次拖拽拆成三方参与的事件驱动模型：
-
 | 角色 | 是什么 | 职责 |
 | --- | --- | --- |
 | **拖拽源（drag source）** | 带 `draggable="true"` 的元素 | 在 `dragstart` 里调用 `setData()` 写入数据 |
 | **投放目标（drop target）** | 接收拖拽的元素 | 在 `dragover` 里 `preventDefault()` 放行，在 `drop` 里 `getData()` 取数据 |
 | **`DataTransfer`** | 贯穿全程的数据载体 | 存在 `event.dataTransfer` 上，拖拽过程中**唯一的通信通道** |
 
-关键约束：**数据只能通过 `DataTransfer` 传递**，浏览器不提供任何「直接取到被拖拽元素」的接口。`drop` 时你拿到的是一段字符串（或 Files），不是那个 DOM 节点。
+数据只能通过 `DataTransfer` 传递，浏览器不提供直接取到被拖拽元素的接口；`drop` 拿到的是一段字符串或 Files，不是那个 DOM 节点。
 
 ```html
 <div id="source" draggable="true">拖我</div>
 <div id="target">放到这里</div>
 ```
 
-默认就可以拖的元素只有三类：**图片 `<img>`、带 `href` 的链接 `<a>`、以及被选中的文本**。其余元素都必须显式加 `draggable="true"`。
+默认可拖的只有三类：**图片 `<img>`、带 `href` 的链接 `<a>`、被选中的文本**，其余元素必须显式加 `draggable="true"`。
 
 ## 2. 事件流程
 
@@ -49,9 +47,9 @@ sequenceDiagram
 | `drop` | 目标 | 在目标上释放时 | `preventDefault()`、`getData()` / `files` 取数据、执行落位逻辑 |
 | `dragend` | 拖拽源 | 拖拽结束时，**无论成功、取消还是拖出窗口** | 清理临时状态（`dragend` 是唯一保证收尾的事件） |
 
-记忆方式：**源上有三个（start / drag / end），目标上有四个（enter / over / leave / drop）**，中间夹一个先 after-enter 后 over 的顺序。
+记忆方式：源上有三个（start / drag / end），目标上有四个（enter / over / leave / drop）。
 
-## 3. DataTransfer 对象详解
+## 3. DataTransfer 对象
 
 | 成员 | 说明 |
 | --- | --- |
@@ -63,11 +61,11 @@ sequenceDiagram
 | `dropEffect` | 在 `dragenter` / `dragover` 设置，当前实际操作：`copy` / `move` / `link` / `none` |
 | `files` | 从操作系统拖入文件时的 `FileList` |
 | `items` | `DataTransferItemList`，`kind` 为 `string` 或 `file`，可用 `getAsString()` / `getAsFile()` |
-| `setDragImage(el, x, y)` | 用指定元素/图片作为拖拽时跟随光标的「拖影」 |
+| `setDragImage(el, x, y)` | 用指定元素/图片作为拖拽时跟随光标的拖影 |
 
-`type` 用 MIME 类型：标准的有 `text/plain`、`text/html`、`text/uri-list`，也可以自定义 `application/x-my-app` 这种私有类型，避免和其他拖放源冲突。
+`type` 用 MIME 类型：标准的有 `text/plain`、`text/html`、`text/uri-list`，也可以自定义 `application/x-my-app` 这类私有类型，避免和其他拖放源冲突。
 
-**最重要的安全限制**：拖拽过程中 `dataTransfer` 处于**保护模式（protected mode）**——在 `dragenter` / `dragover` 里调用 `getData()` 会拿到**空字符串**，只有 `types` 可读。这是设计上的限制，目的是防止页面在用户还没放下时就窥探被拖拽的内容。所以：
+拖拽过程中 `dataTransfer` 处于**保护模式**：在 `dragenter` / `dragover` 里调用 `getData()` 只能拿到**空字符串**，只有 `types` 可读。这是为了防止页面在用户放下之前窥探内容。
 
 ```js
 target.addEventListener('dragover', (e) => {
@@ -108,7 +106,7 @@ source.addEventListener('dragend', () => {
 });
 ```
 
-## 5. 两个高频实战场景
+## 5. 实战：文件上传与列表排序
 
 ### (1) 拖拽文件上传
 
@@ -140,7 +138,7 @@ zone.addEventListener('drop', (e) => {
 });
 ```
 
-文件场景**不需要 `setData`**，数据由操作系统直接填进 `dataTransfer.files`。
+文件场景不需要 `setData`，数据由操作系统直接填进 `dataTransfer.files`。
 
 ### (2) 列表排序
 
@@ -168,26 +166,29 @@ function getDragAfterElement(container, y) {
 }
 ```
 
-排序的关键技巧：**在 `dragover` 里实时调整 DOM 顺序**（而不是等 `drop` 再插入），视觉上就能看到元素跟着走。
+排序的关键是在 `dragover` 里实时调整 DOM 顺序，而不是等 `drop` 再插入，这样拖动时就能看到元素跟着走。
 
-## 6. 必须知道的坑
+## 6. 失效条件
 
-- **不 `preventDefault()` 就没有 `drop`**：`dragover` 上不阻止默认行为，浏览器会认为这个区域不接受放置。90% 的「拖放没反应」都是这一条。
-- **`dragleave` 会被子元素冒泡误触发**：从父元素的 padding 移到子元素上时，也会触发 `dragleave` 导致高亮闪烁。用 `e.relatedTarget` 判断是否真的离开了整个容器，或者维护一个进入/离开计数器。
-- **`getData()` 在 `dragover` 里读不到**：前面说的保护模式，只有 `types` 可读。
-- **`dragend` 才会兜底**：拖到窗口外、按 Esc 取消时不会触发 `drop`，只有 `dragend` 一定会触发——所有清理逻辑放这里。
-- **`effectAllowed` 与 `dropEffect` 要兼容**：`effectAllowed = 'copy'` 而 `dropEffect = 'move'` 时，浏览器会把光标显示为禁止，`drop` 也不发生。
-- **图片和链接默认可拖**：不想要这个行为就加 `draggable="false"`；反过来，`draggable="true"` 的元素上的文本选中会受影响，必要时配合 `user-select: none`。
-- **浏览器默认行为要挡住**：把文件拖到页面上时，浏览器会直接打开那个文件。必须在 `document` 上也监听 `dragover` / `drop` 并 `preventDefault()`。
-- **移动端基本不可用**：HTML5 拖放是为鼠标设计的，触摸屏上没有原生拖拽手势，iOS 长期不支持（较新版本才补上但行为不一致），Android 也不完整。移动端要么用 Pointer Events 自己实现，要么直接用库。
+- **不 `preventDefault()` 就没有 `drop`**：`dragover` 不阻止默认行为，浏览器认为该区域不接受放置，这是「拖放没反应」最常见的原因。
+- **`getData()` 在 `dragover` 里读不到**：保护模式，只有 `types` 可读。
+- **`effectAllowed` 与 `dropEffect` 必须兼容**：`effectAllowed = 'copy'` 而 `dropEffect = 'move'` 时，光标显示为禁止，`drop` 也不发生。
+- **`dragend` 才兜底**：拖到窗口外或按 Esc 取消时不触发 `drop`，只有 `dragend` 一定触发，所有清理逻辑放这里。
 
-## 7. 什么时候不用它
+## 7. 其他边界
 
-原生 Drag and Drop API 的交互模型固定（拖影、光标、系统级拖拽语义），定制空间很小，加上移动端缺陷，工程里常见的替代方案是：
+- **`dragleave` 会被子元素冒泡误触发**：从父元素移到子元素也会触发，用 `e.relatedTarget` 判断是否真的离开容器，或维护计数器。
+- **图片和链接默认可拖**：不想要加 `draggable="false"`；`draggable="true"` 的元素文本选中会受影响，必要时配合 `user-select: none`。
+- **文件拖到页面上浏览器会直接打开**：必须在 `document` 上也监听 `dragover` / `drop` 并 `preventDefault()`。
+- **移动端基本不可用**：原生拖放为鼠标设计，触摸屏无原生拖拽手势，需用 Pointer Events 或库。
 
-- **Pointer Events**（`pointerdown` / `pointermove` / `pointerup`）：自己实现拖拽，鼠标、触摸、触控笔统一处理，完全可控——拖拽排序、看板、滑块都适合。
+## 8. 什么时候不用它
+
+原生 Drag and Drop API 的交互模型固定（拖影、光标、系统级拖拽语义），定制空间小，加上移动端缺陷，常见替代方案是：
+
+- **Pointer Events**（`pointerdown` / `pointermove` / `pointerup`）：鼠标、触摸、触控笔统一处理，完全可控，适合拖拽排序、看板、滑块。
 - **成熟的库**：`SortableJS`（列表排序）、`dnd-kit`（React 生态，基于 Pointer Events、支持无障碍键盘操作）、`react-dnd`（基于 HTML5 DnD，适合跨组件拖放）。
-- **需要接收操作系统文件**时，HTML5 DnD 仍是标准做法——这是它的主场。
+- **需要接收操作系统文件**时，HTML5 DnD 仍是标准做法。
 
 ---
 
