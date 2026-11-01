@@ -1,4 +1,4 @@
-import { Mermaid } from '../../components';
+import { Mermaid, Sandpack } from '../../components';
 
 # 05. 隐藏页面元素的方式有哪些？区别是什么？
 
@@ -32,6 +32,62 @@ DOM 树、渲染树、无障碍树是标准叫法；布局与绘制是渲染阶�
 | `aria-hidden="true"` | 不影响布局 | ✅ | ✅ | ❌ | — | 只管无障碍，不影响视觉 |
 
 「Tab 可聚焦」和「鼠标可命中」必须分开看：`transform`、`overflow` 只影响绘制与命中测试，不影响焦点管理。只有 `display: none`、`visibility: hidden`、`inert` 会同时把元素移出焦点序列。
+
+按 Tab 移动焦点、点击方块，观察哪些能聚焦、哪些能点中：
+
+<Sandpack
+  template="static"
+  height={340}
+  html={`<p class="hint">按 Tab 在页面中移动焦点，再点击方块，观察下方提示</p>
+
+<div class="row">
+  <span class="label">display: none</span>
+  <span class="box display-none">A</span>
+  <span class="after">后面的元素</span>
+</div>
+
+<div class="row">
+  <span class="label">visibility: hidden</span>
+  <span class="box visibility-hidden">B</span>
+  <span class="after">后面的元素</span>
+</div>
+
+<div class="row">
+  <span class="label">opacity: 0</span>
+  <span class="box opacity-zero" tabindex="0">C</span>
+  <span class="after">后面的元素</span>
+</div>
+
+<div class="row">
+  <span class="label">transform: scale(0)</span>
+  <span class="box scale-zero" tabindex="0">D</span>
+  <span class="after">后面的元素</span>
+</div>
+
+<p id="log">尚未发生交互</p>`}
+  css={`body { font-family: system-ui, sans-serif; padding: 16px; margin: 0; font-size: 13px; }
+.hint { color: #64748b; font-size: 12px; margin: 0 0 14px; }
+.row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.label { width: 150px; flex-shrink: 0; color: #64748b; font-size: 12px; }
+.box { width: 64px; height: 36px; line-height: 36px; text-align: center; background: #60a5fa; color: #fff; border-radius: 6px; }
+.after { color: #94a3b8; }
+.display-none { display: none; }
+.visibility-hidden { visibility: hidden; }
+.opacity-zero { opacity: 0; }
+.scale-zero { transform: scale(0); }
+#log { margin-top: 16px; padding: 8px 10px; background: #f1f5f9; border-radius: 6px; color: #0f172a; }`}
+  js={`const log = document.getElementById('log');
+
+document.querySelectorAll('.box').forEach((el) => {
+  el.addEventListener('click', () => {
+    log.textContent = '点击命中：' + el.textContent;
+  });
+  el.addEventListener('focus', () => {
+    log.textContent = '焦点进入：' + el.textContent;
+  });
+});`}
+/>
+
 
 ## 3. display: none 与 visibility: hidden
 

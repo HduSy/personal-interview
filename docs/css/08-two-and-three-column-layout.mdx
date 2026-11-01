@@ -1,0 +1,202 @@
+import { Sandpack } from '../../components';
+
+# 08. 如何实现两栏布局，右侧自适应？三栏布局中间自适应呢？
+
+## 1. 两栏：左侧固定，右侧自适应
+
+### (1) Flexbox
+
+```css
+.parent { display: flex; }
+.left   { width: 200px; flex-shrink: 0; }
+.right  { flex: 1; min-width: 0; }
+```
+
+`flex-shrink: 0` 防止左侧被压窄。
+
+**`flex: 1` 展开为 `flex-grow: 1; flex-shrink: 1; flex-basis: 0%`**，其中 `flex-basis: 0%` 表示分配空间时忽略内容宽度，完全按剩余空间计算。对比 `flex: auto`（`1 1 auto`）——它从内容宽度出发再伸缩。
+
+**`min-width: 0` 用于突破自动最小尺寸**。flex 项目的 `min-width` 默认是 `auto`，当项目 `overflow` 为 `visible` 时，这个 `auto` 会被解析成内容的**最小固有宽度**。
+
+下面对比两行：唯一差别是 `.outer` 有没有写 `min-width: 0`。第一行被长单词撑破，第二行正常收缩并显示省略号。
+
+<Sandpack
+  template="static"
+  height={280}
+  html={`<div class="demo">
+  <p class="label">① 未写 min-width: 0 —— 容器被撑破</p>
+  <div class="row">
+    <div class="fixed">左</div>
+    <div class="outer">
+      <div class="content">SupercalifragilisticexpialidociousSupercalifragilistic</div>
+    </div>
+  </div>
+
+  <p class="label">② 写了 min-width: 0 —— 正常收缩并省略</p>
+  <div class="row">
+    <div class="fixed">左</div>
+    <div class="outer shrinkable">
+      <div class="content">SupercalifragilisticexpialidociousSupercalifragilistic</div>
+    </div>
+  </div>
+</div>`}
+  css={`body { font-family: system-ui, sans-serif; padding: 16px; margin: 0; }
+.demo { width: 320px; }
+.label { font-size: 12px; color: #666; margin: 12px 0 4px; }
+.row { display: flex; border: 1px solid #cbd5e1; }
+.fixed { width: 60px; flex-shrink: 0; background: #f1f5f9; padding: 8px; }
+.outer { flex: 1; padding: 8px; background: #eff6ff; }
+.shrinkable { min-width: 0; }
+.content { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }`}
+/>
+
+`.outer` 的最小固有宽度等于那串长单词的宽度，flex 无法把它压得更小，于是整行超出 320px。加上 `min-width: 0` 后 `.outer` 才能收缩，内部的省略号也随之生效。
+
+两种修法任选其一：
+
+```css
+/* 一：显式允许收缩 */
+.main { flex: 1; min-width: 0; overflow: hidden; }
+
+/* 二：只设 overflow，自动最小尺寸会变成 0，min-width: 0 不再是必需 */
+.main { flex: 1; overflow: hidden; }
+```
+
+真正必须写 `min-width: 0` 的是**嵌套 flex**：外层项目的 `overflow` 仍是 `visible`，内部还有一层 flex 或长内容，此时外层不写就无法收缩。垂直方向同理，对应 `min-height: 0`。
+
+**常见触发场景**：不含空格的长单词、长 URL、`white-space: nowrap` 文本、`<pre>` 与宽表格、嵌套的 flex / grid 容器。这些内容的最小固有宽度都很大，配合 `overflow: hidden` + `text-overflow: ellipsis` 可做成省略号截断。
+
+### (2) Grid
+
+```css
+.parent { display: grid; grid-template-columns: 200px 1fr; }
+```
+
+### (3) 浮动 + BFC
+
+```css
+.left  { float: left; width: 200px; }
+.right { overflow: hidden; }
+```
+
+右侧形成 BFC 后不与浮动元素重叠，自动占据剩余宽度。
+
+### (4) 绝对定位
+
+```css
+.parent { position: relative; }
+.left   { position: absolute; width: 200px; }
+.right  { margin-left: 200px; }
+```
+
+左侧脱离文档流，右侧用 `margin-left` 让位。父元素需有高度，否则塌陷。
+
+## 2. 三栏：中间列 DOM 前置，左右固定
+
+DOM 统一写成中间列在最前，让正文先被解析和朗读：
+
+```html
+<div class="parent">
+  <div class="middle">中间</div>
+  <div class="left">左</div>
+  <div class="right">右</div>
+</div>
+```
+
+### (1) Flexbox
+
+```css
+.parent { display: flex; }
+.left, .right { width: 200px; flex-shrink: 0; }
+.middle { flex: 1; min-width: 0; }
+.left   { order: -1; }
+```
+
+默认所有项目 `order: 0`，视觉顺序与 DOM 一致；给左列 `order: -1` 后它排到最前，最终显示为左、中、右。
+
+### (2) Grid
+
+```css
+.parent {
+  display: grid;
+  grid-template-columns: 200px 1fr 200px;
+  grid-template-areas: "left middle right";
+}
+.left   { grid-area: left; }
+.middle { grid-area: middle; }
+.right  { grid-area: right; }
+```
+
+用 `grid-area` 显式指定位置，DOM 顺序与视觉顺序完全解耦。
+
+### (3) 浮动 + BFC
+
+```css
+.left   { float: left;  width: 200px; }
+.right  { float: right; width: 200px; }
+.middle { overflow: hidden; margin: 0 200px; }
+```
+
+浮动本身做不到中间列 DOM 前置——浮动元素会按 DOM 顺序依次排布，中间列写在前就必然先占位。要用浮动实现中列前置，只能靠下面的圣杯或双飞翼。
+
+### (4) 圣杯布局与双飞翼布局
+
+这两种方案的核心目的相同：**让中间列在 DOM 中排在最前**（内容优先，利于 SEO 与无障碍），再用负 margin 把它拉到正确位置。
+
+**圣杯布局**：
+
+```html
+<div class="container">
+  <div class="center">中间</div>
+  <div class="left">左</div>
+  <div class="right">右</div>
+</div>
+```
+
+```css
+.container { padding: 0 200px; }
+.center { float: left; width: 100%; }
+.left   { float: left; width: 200px; margin-left: -100%; position: relative; left: -200px; }
+.right  { float: left; width: 200px; margin-left: -200px; position: relative; right: -200px; }
+```
+
+中间先占满整行，`margin-left: -100%` 把左列拉到上一行起点，再用容器的 `padding` 和 `position: relative` 把左右列推到两侧。
+
+**双飞翼布局**：
+
+```html
+<div class="container">
+  <div class="center"><div class="inner">中间</div></div>
+  <div class="left">左</div>
+  <div class="right">右</div>
+</div>
+```
+
+```css
+.container { overflow: hidden; }
+.center, .left, .right { float: left; }
+.center { width: 100%; }
+.center .inner { margin: 0 200px; }
+.left  { width: 200px; margin-left: -100%; }
+.right { width: 200px; margin-left: -200px; }
+```
+
+区别在于：**圣杯用容器的 padding + 左右列的相对定位让位；双飞翼给中间列加一层内部元素，用内部元素的 margin 让位**，因此不需要 `position: relative`。
+
+## 3. 选型
+
+| 方案 | 代码量 | 中间列可优先渲染 | 适用场景 |
+| --- | --- | --- | --- |
+| Flexbox | 少 | 可（配合 `order`） | 现代项目首选 |
+| Grid | 最少 | 可 | 现代项目首选 |
+| 浮动 + BFC | 中 | 否 | 兼容老浏览器 |
+| 圣杯 / 双飞翼 | 多 | 是 | 面试考点，实际已少用 |
+| 绝对定位 | 中 | 否 | 需要精确叠层时 |
+
+现代项目直接用 Flex 或 Grid 即可。圣杯与双飞翼是浮动时代的产物，如今主要作为面试题出现——能说清「中间列 DOM 前置 + 负 margin 拉回 + 让位方式不同」即可，不必背完整代码。
+
+---
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）
