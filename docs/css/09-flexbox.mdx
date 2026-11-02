@@ -1,0 +1,101 @@
+import { Sandpack } from '../../components';
+
+# 09. 说说 Flexbox（弹性盒布局模型）以及适用场景
+
+## 1. 是什么
+
+Flexbox 是 CSS 的**一维布局模型**：元素在一条主轴方向上依次排列，多余的或不足的空间由项目按比例分配。
+
+它解决的是「容器尺寸不确定、内容尺寸也不确定时，如何排布和对齐」的问题——不需要知道具体宽高就能实现居中、等高、弹性分配。
+
+## 2. 主轴与交叉轴
+
+`display: flex` 让元素成为弹性容器，子元素成为弹性项目。
+
+- **主轴**：项目排列的方向，由 `flex-direction` 决定，默认 `row`（水平）。
+- **交叉轴**：与主轴垂直的方向。
+
+`justify-content` 控制主轴上的对齐与分配，`align-items` 控制交叉轴上的对齐。所有属性都以这两条轴为基准，与「水平/垂直」没有绑定关系——`flex-direction: column` 后，`justify-content` 变成控制垂直方向。
+
+## 3. 容器属性
+
+| 属性 | 作用 | 常用值 |
+| --- | --- | --- |
+| `flex-direction` | 主轴方向 | `row`（默认）、`column`、`row-reverse` |
+| `flex-wrap` | 是否换行 | `nowrap`（默认）、`wrap` |
+| `justify-content` | 主轴对齐与分配 | `flex-start`、`center`、`space-between`、`space-around`、`space-evenly` |
+| `align-items` | 交叉轴对齐 | `stretch`（默认）、`center`、`flex-start`、`flex-end`、`baseline` |
+| `align-content` | 多行时的行间对齐 | 仅在 `flex-wrap: wrap` 且有多行时生效 |
+| `gap` | 项目间距 | 任意长度 |
+
+`align-items` 默认是 `stretch`，所以项目默认会被拉伸填满交叉轴方向的高度——这正是 Flex 能天然实现等高列的原因。
+
+## 4. 项目属性与 flex 简写
+
+| 属性 | 作用 |
+| --- | --- |
+| `flex-grow` | 放大比例，分配**剩余空间** |
+| `flex-shrink` | 收缩比例，空间不足时按比例压缩 |
+| `flex-basis` | 分配前的初始尺寸，`auto` 时取 `width` 或内容宽度 |
+| `order` | 排列顺序，默认 `0`，数值小的在前 |
+| `align-self` | 覆盖容器的 `align-items` |
+
+`flex` 是三个属性的简写：
+
+```css
+flex: 1;      /* flex-grow: 1; flex-shrink: 1; flex-basis: 0% */
+flex: auto;   /* 1 1 auto  —— 从内容宽度出发再伸缩 */
+flex: none;   /* 0 0 auto  —— 不放大不收缩 */
+flex: 0 0 200px;
+```
+
+单值写法给的是 `flex-grow`，`flex-basis` 被设为 `0%`，因此 `flex: 1` 的项目会**忽略内容宽度**，完全按比例瓜分容器。
+
+## 5. 分配过程演示
+
+容器 320px，三个项目 `flex` 分别为 1、2、1，`flex-basis` 都是 0：
+
+<Sandpack
+  template="static"
+  height={140}
+  html={`<div class="box">
+  <div class="item" style="flex: 1">flex: 1</div>
+  <div class="item b" style="flex: 2">flex: 2</div>
+  <div class="item" style="flex: 1">flex: 1</div>
+</div>`}
+  css={`body { margin: 0; padding: 16px; font-family: system-ui, sans-serif; font-size: 12px; }
+.box { display: flex; width: 320px; height: 64px; gap: 4px; }
+.item { display: flex; align-items: center; justify-content: center; background: #93c5fd; border-radius: 4px; }
+.b { background: #3b82f6; color: #fff; }`}
+/>
+
+剩余空间 320px 按 1:2:1 分配，得到 80 / 160 / 80。若三个项目都写 `flex: 1`，则各占 106.67px。`flex-basis` 不为 0 时，先扣除各自基准尺寸，再分配剩余部分。
+
+## 6. 适用场景
+
+- **一维排列**：导航栏、工具栏、按钮组、标签页。
+- **水平垂直居中**：`justify-content: center` + `align-items: center`。
+- **等高列**：`align-items` 默认 `stretch`，卡片自动等高。
+- **弹性分配**：左右固定、中间自适应；侧边栏 + 主内容区。
+- **内容长度不确定时的对齐**：工具栏图标、徽标、头像与文字对齐。
+- **表单行**：多个输入框按比例分配宽度。
+- **顺序调整**：用 `order` 在不改 DOM 的前提下调整视觉顺序。
+
+## 7. 不适用
+
+- **二维布局**（同时需要行与列对齐）：用 Grid。Flex 没有真正的行概念，跨行对齐要靠嵌套容器硬凑。
+- **页面级骨架**：Grid 的 `grid-template-areas` 表达区域结构更直观。
+- **表格型数据**：需要列宽跨行严格对齐时，Grid 或原生 `<table>` 更合适。
+- **大量项目**：项目数达到数百时，Flex 的布局计算成本高于普通块布局。
+
+一个判断标准：**只需要在一条方向上排列和分配空间，用 Flex；需要同时控制行和列，用 Grid。**
+
+## 参考
+
+- [Flex 布局教程：语法篇 — 阮一峰](https://ruanyifeng.com/blog/2015/07/flex-grammar.html)
+
+---
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）
