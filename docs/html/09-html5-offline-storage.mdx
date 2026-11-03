@@ -2,7 +2,9 @@ import { Mermaid } from '../../components';
 
 # 09. HTML5 离线存储怎么使用？工作原理是什么？
 
-## 1. 两层含义
+## 高频问答
+
+### 1. 两层含义
 
 HTML5 离线存储分资源离线和数据离线两件事：
 
@@ -11,7 +13,7 @@ HTML5 离线存储分资源离线和数据离线两件事：
 
 **AppCache 已从 HTML 规范废弃，主流浏览器也已移除支持**，现代方案是 Service Worker + Cache API。
 
-## 2. AppCache 的使用与工作原理
+### 2. AppCache 的使用与工作原理
 
 AppCache 用 manifest 声明离线资源，通过 `<html manifest="...">` 关联。
 
@@ -61,7 +63,7 @@ flowchart TD
 - **隐式规则**：不在 CACHE 也不在 NETWORK 的资源，离线时无法加载。
 - **策略固定**：只有缓存优先一种。
 
-## 3. Service Worker + Cache API
+### 3. Service Worker + Cache API
 
 Service Worker 是运行在独立线程的可编程网络代理，配合 Cache API 可以完全控制请求走缓存还是网络。
 
@@ -105,7 +107,7 @@ self.addEventListener('fetch', (e) => {             // 拦截请求：缓存优�
 | 单资源失败 | 整次更新作废 | 可按请求粒度重试 / 回退 |
 | 缓存策略 | 固定缓存优先 | 任意策略自由实现 |
 
-## 4. 数据离线方案
+### 4. 数据离线方案
 
 数据离线按容量和接口选择：
 
@@ -114,8 +116,6 @@ self.addEventListener('fetch', (e) => {             // 拦截请求：缓存优�
 | **localStorage** | 约 5MB | 同步，只能存字符串 | 永久（手动清除） | token、主题偏好等小数据 |
 | **sessionStorage** | 约 5MB | 同步，只能存字符串 | 当前标签页关闭即清 | 临时表单数据 |
 | **IndexedDB** | 大容量（受浏览器配额限制） | 异步、事务型，可存对象 / 文件 | 永久 | 离线同步、草稿、大量结构化数据 |
-
----
 
 ## 你的回答
 
@@ -129,7 +129,7 @@ HTML5 里面的缓存主要分为两种：
 
 另外，这两者都是对静态资源的缓存。对于数据上的缓存，则提供了 Web Storage API，包括 Local Storage、Session Storage 以及 IndexedDB（用于存储大文件或数据量较大的情况）。
 
-## 口述点评
+### 口述点评
 
 **评分：7/10**
 

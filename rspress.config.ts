@@ -60,6 +60,7 @@ function getAutoSidebar() {
 
 export default defineConfig({
   root: 'docs',
+  globalStyles: path.join(__dirname, 'styles/index.css'),
   markdown: {
     globalComponents: [
       path.join(__dirname, 'components/Mermaid.tsx'),

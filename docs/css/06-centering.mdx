@@ -1,6 +1,8 @@
 # 06. 元素水平垂直居中的方法有哪些？如果元素不定宽高呢？
 
-## 1. 两类方案
+## 高频问答
+
+### 1. 两类方案
 
 居中方案按「谁分配父容器的剩余空间」分两类：
 
@@ -9,9 +11,9 @@
 
 「元素不定宽高」只能用第二类。
 
-## 2. 需要确定尺寸的方案
+### 2. 需要确定尺寸的方案
 
-### (1) 绝对定位 + 负 margin
+#### (1) 绝对定位 + 负 margin
 
 ```css
 .parent { position: relative; }
@@ -29,7 +31,7 @@
 
 `top/left: 50%` 把元素左上角移到父容器中心，负 margin 按自身尺寸的一半拉回。数值固定，尺寸一变就要同步改。
 
-### (2) 绝对定位 + `inset: 0` + `margin: auto`
+#### (2) 绝对定位 + `inset: 0` + `margin: auto`
 
 ```css
 .parent { position: relative; }
@@ -45,7 +47,7 @@
 
 四边偏移归零后，剩余空间由 `margin: auto` 平分。要求父元素有定位上下文、子元素确定宽高（`<img>` 等替换元素除外）；只写 `inset: 0` 元素会靠左。
 
-### (3) `line-height` 单行文本
+#### (3) `line-height` 单行文本
 
 ```css
 .parent {
@@ -57,7 +59,7 @@
 
 `line-height` 撑高行盒实现垂直居中。只适合单行，多行会溢出；行高会被子元素继承，需要在子元素上重置。
 
-### (4) `calc` 计算偏移
+#### (4) `calc` 计算偏移
 
 ```css
 .child {
@@ -71,9 +73,9 @@
 
 与负 margin 等价，同样必须知道尺寸。
 
-## 3. 不依赖尺寸的方案
+### 3. 不依赖尺寸的方案
 
-### (1) 绝对定位 + `transform`
+#### (1) 绝对定位 + `transform`
 
 ```css
 .parent { position: relative; }
@@ -88,7 +90,7 @@
 
 `translate` 百分比参照自身尺寸，无需知道宽高；`transform` 创建层叠上下文，半像素偏移模糊。
 
-### (2) Flexbox
+#### (2) Flexbox
 
 ```css
 .parent {
@@ -100,7 +102,7 @@
 
 弹性布局分配空间。`margin: auto` 吸收自由空间；块级流垂直 auto margin 为 0。
 
-### (3) Grid
+#### (3) Grid
 
 ```css
 .parent {
@@ -111,7 +113,7 @@
 
 `place-items` 是 `align-items` 与 `justify-items` 的合写；`place-self: center` 或 `margin: auto` 均可。
 
-### (4) `display: table-cell`
+#### (4) `display: table-cell`
 
 ```css
 .parent {
@@ -127,7 +129,7 @@
 
 垂直靠 `vertical-align`，水平靠 `text-align` + `inline-block`，无需定尺寸；代价是 `margin` 失效。
 
-### (5) 块级 `align-content`
+#### (5) 块级 `align-content`
 
 ```css
 .parent {
@@ -138,7 +140,7 @@
 
 块级容器也可用 `align-content: center`，无需额外 `display`。
 
-## 4. 对比与常见失败点
+### 4. 对比与常见失败点
 
 定尺寸方案兼容老浏览器；不定尺寸用 Flex/Grid。
 
@@ -161,8 +163,6 @@
 5. **`line-height` 继承**：多行文本需重置。
 6. **块级垂直 `margin: auto` 无效**：需 `display: flex/grid`。
 7. **`table-cell` 改变布局**：`margin` 失效。
-
----
 
 ## 你的回答
 

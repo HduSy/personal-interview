@@ -2,7 +2,9 @@ import { Mermaid } from '../../components';
 
 # 16. 说一下 HTML5 的拖放（Drag and Drop）API
 
-## 1. 核心模型：三个角色
+## 高频问答
+
+### 1. 核心模型：三个角色
 
 | 角色 | 是什么 | 职责 |
 | --- | --- | --- |
@@ -19,7 +21,7 @@ import { Mermaid } from '../../components';
 
 默认可拖的只有三类：**图片 `<img>`、带 `href` 的链接 `<a>`、被选中的文本**，其余元素必须显式加 `draggable="true"`。
 
-## 2. 事件流程
+### 2. 事件流程
 
 <Mermaid chart={`
 sequenceDiagram
@@ -49,7 +51,7 @@ sequenceDiagram
 
 记忆方式：源上有三个（start / drag / end），目标上有四个（enter / over / leave / drop）。
 
-## 3. DataTransfer 对象
+### 3. DataTransfer 对象
 
 | 成员 | 说明 |
 | --- | --- |
@@ -75,7 +77,7 @@ target.addEventListener('dragover', (e) => {
 });
 ```
 
-## 4. 最小可用示例
+### 4. 最小可用示例
 
 ```js
 const source = document.getElementById('source');
@@ -106,9 +108,9 @@ source.addEventListener('dragend', () => {
 });
 ```
 
-## 5. 实战：文件上传与列表排序
+### 5. 实战：文件上传与列表排序
 
-### (1) 拖拽文件上传
+#### (1) 拖拽文件上传
 
 ```js
 const zone = document.getElementById('drop-zone');
@@ -140,7 +142,7 @@ zone.addEventListener('drop', (e) => {
 
 文件场景不需要 `setData`，数据由操作系统直接填进 `dataTransfer.files`。
 
-### (2) 列表排序
+#### (2) 列表排序
 
 ```js
 list.addEventListener('dragover', (e) => {
@@ -168,29 +170,27 @@ function getDragAfterElement(container, y) {
 
 排序的关键是在 `dragover` 里实时调整 DOM 顺序，而不是等 `drop` 再插入，这样拖动时就能看到元素跟着走。
 
-## 6. 失效条件
+### 6. 失效条件
 
 - **不 `preventDefault()` 就没有 `drop`**：`dragover` 不阻止默认行为，浏览器认为该区域不接受放置，这是「拖放没反应」最常见的原因。
 - **`getData()` 在 `dragover` 里读不到**：保护模式，只有 `types` 可读。
 - **`effectAllowed` 与 `dropEffect` 必须兼容**：`effectAllowed = 'copy'` 而 `dropEffect = 'move'` 时，光标显示为禁止，`drop` 也不发生。
 - **`dragend` 才兜底**：拖到窗口外或按 Esc 取消时不触发 `drop`，只有 `dragend` 一定触发，所有清理逻辑放这里。
 
-## 7. 其他边界
+### 7. 其他边界
 
 - **`dragleave` 会被子元素冒泡误触发**：从父元素移到子元素也会触发，用 `e.relatedTarget` 判断是否真的离开容器，或维护计数器。
 - **图片和链接默认可拖**：不想要加 `draggable="false"`；`draggable="true"` 的元素文本选中会受影响，必要时配合 `user-select: none`。
 - **文件拖到页面上浏览器会直接打开**：必须在 `document` 上也监听 `dragover` / `drop` 并 `preventDefault()`。
 - **移动端基本不可用**：原生拖放为鼠标设计，触摸屏无原生拖拽手势，需用 Pointer Events 或库。
 
-## 8. 什么时候不用它
+### 8. 什么时候不用它
 
 原生 Drag and Drop API 的交互模型固定（拖影、光标、系统级拖拽语义），定制空间小，加上移动端缺陷，常见替代方案是：
 
 - **Pointer Events**（`pointerdown` / `pointermove` / `pointerup`）：鼠标、触摸、触控笔统一处理，完全可控，适合拖拽排序、看板、滑块。
 - **成熟的库**：`SortableJS`（列表排序）、`dnd-kit`（React 生态，基于 Pointer Events、支持无障碍键盘操作）、`react-dnd`（基于 HTML5 DnD，适合跨组件拖放）。
 - **需要接收操作系统文件**时，HTML5 DnD 仍是标准做法。
-
----
 
 ## 你的回答
 

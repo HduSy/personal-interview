@@ -1,6 +1,8 @@
 # 05. 常用的 meta 标签有哪些？
 
-## 1. 什么是 meta 标签？
+## 高频问答
+
+### 1. 什么是 meta 标签？
 
 `<meta>` 标签位于 HTML 文档的 `<head>` 区域内，用于**提供关于 HTML 文档的元数据（Metadata）**。
 
@@ -11,16 +13,16 @@
 - `name` + `content`：面向文档元信息与 SEO（给爬虫和第三方工具看）。
 - `http-equiv` + `content`：模拟 HTTP 响应头行为（给浏览器引擎看）。
 
-## 2. 常见 meta 标签按功能分类详解
+### 2. 常见 meta 标签按功能分类详解
 
-### (1) 基础与字符编码
+#### (1) 基础与字符编码
 
 ```html
 <!-- 声明文档字符编码，必须置于 head 最前部以避免乱码 -->
 <meta charset="UTF-8">
 ```
 
-### (2) 移动端响应式视口（Viewport）
+#### (2) 移动端响应式视口（Viewport）
 
 ```html
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -33,7 +35,7 @@
 | `maximum-scale=1.0` | 允许用户缩放到的最大比例 |
 | `user-scalable=no` | 是否允许用户通过双指手势缩放页面（`yes` / `no`） |
 
-### (3) 搜索引擎优化（SEO）
+#### (3) 搜索引擎优化（SEO）
 
 ```html
 <!-- 页面描述：搜索引擎展示在标题下方的摘要，极大影响点击率 -->
@@ -49,7 +51,7 @@
 <meta name="author" content="Rayon">
 ```
 
-### (4) 浏览器行为与 HTTP 模拟（`http-equiv`）
+#### (4) 浏览器行为与 HTTP 模拟（`http-equiv`）
 
 ```html
 <!-- 告知 IE 浏览器采用最高版本的渲染模式（Edge 模式） -->
@@ -66,7 +68,7 @@
 <meta http-equiv="Content-Security-Policy" content="script-src 'self'">
 ```
 
-### (5) 社交平台分享与 Open Graph（OG 协议）
+#### (5) 社交平台分享与 Open Graph（OG 协议）
 
 常用于微信、Twitter/X、Facebook、Slack 等平台的卡片分享预览：
 
@@ -78,7 +80,7 @@
 <meta property="og:url" content="https://example.com">
 ```
 
-## 3. 核心对比与速记表格
+### 3. 核心对比与速记表格
 
 | 分类 | 常见键名 (`name` / `http-equiv` / `property`) | 核心作用 |
 | --- | --- | --- |
@@ -87,8 +89,6 @@
 | **SEO 优化** | `name="description"` / `name="keywords"` / `name="robots"` | 爬虫索引与搜索结果摘要展示 |
 | **浏览器控制** | `http-equiv="X-UA-Compatible"` / `http-equiv="Cache-Control"` | 兼容性模式与页面缓存控制 |
 | **社交卡片** | `property="og:title"` / `property="og:image"` | 社交平台链接卡片预览图文 |
-
----
 
 ## 你的回答
 
@@ -103,7 +103,7 @@ Meta 标签是写在 HTML head 标签内的一部分，用来设置文档的元�
 
 第三类：社交网络的分享基于 Open Graph 协议，比如说 OG title、OG description、OG image 等，用于 Twitter(X) 或微信等社交平台识别。
 
-## 口述点评
+### 口述点评
 
 **评分：7.5/10**
 

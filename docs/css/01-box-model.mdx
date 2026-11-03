@@ -2,7 +2,9 @@ import { Mermaid } from '../../components';
 
 # 01. 说说你对盒子模型的理解
 
-## 1. 盒模型的四层结构
+## 高频问答
+
+### 1. 盒模型的四层结构
 
 盒模型是浏览器把每个 HTML 元素渲染成的矩形布局模型，从内到外分为 content、padding、border、margin 四层。**content** 是放置文本、图片或子元素的真实区域，由 `width`、`height` 控制。**padding** 是内容与边框之间的内边距，背景会延伸渲染到该区域。**border** 围绕 content 与 padding，可设置样式、粗细和颜色。**margin** 是盒子与其他元素之间的透明外边距，无背景，用于控制外部间距。
 
@@ -18,7 +20,7 @@ flowchart TD
     end
 `} />
 
-## 2. 标准盒模型与 IE 怪异盒模型
+### 2. 标准盒模型与 IE 怪异盒模型
 
 `box-sizing` 决定 `width`、`height` 圈定的范围。**content-box**（默认）下，`width`、`height` 只等于 content 区域，视觉总宽为 `width + padding + border`；增加 padding 或 border 会把盒子向外撑大，可能撑破并排栅格导致换行。**border-box** 下，`width`、`height` 已包含 content + padding + border，视觉总宽恒等于声明值，内容区被压缩为 `width - padding - border`，外部尺寸可预测。例如声明 180px、padding 40px、border 12px 时，content-box 实际宽 232px，border-box 的内容区只剩 128px。工程上通常全局重置为 `border-box`：
 
@@ -41,7 +43,7 @@ html {
 | **加 padding / border 后** | 向外膨胀，可能撑破栅格换行 | 外部尺寸不变，内容区收缩 |
 | **推荐场景** | 只关心纯文字区域等局部场景 | 现代 Web 页面全局默认 |
 
-## 3. 外边距塌陷
+### 3. 外边距塌陷
 
 块级元素之间的外边距塌陷只发生在垂直方向，水平方向不会合并。相邻兄弟元素取两者中绝对值较大的 `margin`；父子塌陷发生在父元素没有 `border-top`、没有 `padding-top` 且未形成 BFC 时，子元素的 `margin-top` 会穿透到父元素外部，父子顶部仍紧贴。修复优先用 `display: flow-root`；`overflow: hidden` 会触发 BFC 但可能裁剪超出父级的浮层；也可加 `border-top: 1px solid transparent` 或 `padding-top: 1px`。
 
@@ -65,7 +67,7 @@ html {
 </style>
 ```
 
-## 4. 行内元素与尺寸读取 API
+### 4. 行内元素与尺寸读取 API
 
 行内元素（`span`、`a`）的 `width`、`height` 无效；水平方向的 `margin`、`padding`、`border` 生效并占据文档流空间；垂直方向的 `margin-top/bottom` 无效，`padding-top/bottom` 与 `border-top/bottom` 能渲染但不增加行高、不占据文档流高度，会与相邻行重叠。需要完整盒模型能力时改为 `inline-block` 或 `block`。读取尺寸时，`clientWidth`、`offsetWidth`、`getBoundingClientRect()`、`getComputedStyle()` 的口径不同，区别在于是否包含 border、滚动条，以及是否受 transform 缩放影响。
 
@@ -103,8 +105,6 @@ console.log(el.getBoundingClientRect().width); // 130
 // 取决于 box-sizing；此处为 content 宽度，带单位字符串
 console.log(window.getComputedStyle(el).width); // "200px"
 ```
-
----
 
 ## 你的回答
 

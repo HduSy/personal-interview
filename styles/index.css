@@ -1,0 +1,16 @@
+/* 目录锚点跳转平滑滚动 */
+html {
+  scroll-behavior: smooth;
+}
+
+/* 标题被吸顶导航遮挡时留出偏移 */
+[id] {
+  scroll-margin-top: 80px;
+}
+
+/* 用户偏好减少动效时不启用平滑滚动 */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

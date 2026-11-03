@@ -2,9 +2,11 @@ import { Sandpack } from '../../components';
 
 # 02. CSS 选择器有哪些？优先级？哪些属性可以继承？
 
-## 1. 选择器分类
+## 高频问答
 
-### (1) 基础与关系选择器
+### 1. 选择器分类
+
+#### (1) 基础与关系选择器
 
 | 类型 | 语法示例 | 匹配规则说明 |
 | --- | --- | --- |
@@ -20,7 +22,7 @@ import { Sandpack } from '../../components';
 
 分组选择器有连带失效问题：逗号列表中任一选择器不被识别，**整条规则失效**。`h1, ::-webkit-scrollbar { color: red }` 在 Firefox 下连 `h1` 也不生效；改用 `:is(h1, ::-webkit-scrollbar)` 可避免。
 
-### (2) 属性选择器
+#### (2) 属性选择器
 
 | 语法 | 说明 | 示例场景 |
 | --- | --- | --- |
@@ -31,14 +33,14 @@ import { Sandpack } from '../../components';
 | `[attr*="val"]` | 属性值包含指定**子串** | `img[src*="avatar"]` |
 | `[attr~="val"]` | 包含以空格分隔的独立单词 | `[class~="active"]` |
 
-### (3) 伪类与伪元素
+#### (3) 伪类与伪元素
 
 伪类匹配已有节点的状态，用单冒号；伪元素生成抽象节点，用双冒号。
 
 - **伪类**：`:hover`、`:active`、`:focus-visible`、`:checked`、`:first-child`、`:nth-child(n)`、`:empty`、`:not()`、`:is()`、`:where()`、`:has()`。
 - **伪元素**：`::before` / `::after`（需配合 `content`）、`::first-letter`、`::first-line`、`::placeholder`、`::selection`。
 
-## 2. 优先级计算
+### 2. 优先级计算
 
 | 级别 | 对应的选择器成分 | 单个权重值 |
 | :---: | --- | :---: |
@@ -53,7 +55,7 @@ import { Sandpack } from '../../components';
 3. **`!important` 高于普通声明**；两个同类声明都带 `!important` 时，再比较选择器权重。
 4. **`:is()` / `:not()` / `:has()` 取括号内最高权重**；**`:where()` 恒为 `(0, 0, 0, 0)`**，适合写易被覆盖的公共样式。
 
-## 3. 属性继承
+### 3. 属性继承
 
 | 类别 | 常见典型属性 | 为什么这么设计？ |
 | --- | --- | --- |
@@ -64,7 +66,7 @@ import { Sandpack } from '../../components';
 - **`opacity` 不可继承**，但父元素设了半透明后整体合成，子元素写 `opacity: 1` 也无法恢复。
 - **四个控制关键字**：`inherit` 强制继承、`initial` 恢复初始值、`unset`（可继承则 inherit，否则 initial）、`revert` 回退到浏览器默认样式。
 
-## 4. 交互演示
+### 4. 交互演示
 
 打开或注释左侧对应选择器，观察右侧颜色如何随权重变化；同时对比 `:where()` 与 `:is()` 的权重差异。
 
@@ -151,8 +153,6 @@ import { Sandpack } from '../../components';
 </html>`
   }}
 />
-
----
 
 ## 你的回答
 

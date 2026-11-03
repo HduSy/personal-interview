@@ -2,64 +2,62 @@ import { Sandpack } from '../../components';
 
 # 10. 介绍一下 Grid 网格布局
 
-## 1. 是什么
+## 高频问答
 
-Grid 是 CSS 的**二维布局模型**：同时划分行和列，元素被放进单元格或跨越多个单元格。
+### 1. 是什么
 
-Flex 只能沿一条轴排列，另一条轴靠 `align-items` 对齐内容；Grid 从一开始就有完整的行列网格，因此适合页面骨架、卡片列表这类需要双向对齐的布局。
+Grid 是二维布局模型：同时划分行和列，元素放进单元格或跨占多个单元格。
 
-## 2. 基本概念
+与 Flex 的核心区别：**Flex 是一维的**，沿一条轴排列，另一条轴只做对齐；**Grid 是二维的**，行列同时参与布局，可以精确指定跨几行几列。
 
-- **网格容器**：`display: grid` 的元素。
-- **网格项目**：容器的直接子元素。
+### 2. 核心概念
+
+- **容器**：`display: grid` 的元素；**项目**：容器的直接子元素。
 - **轨道**：一行或一列。
-- **网格线**：轨道之间的分隔线，从 `1` 开始编号，`-1` 表示最后一条线。
-- **单元格**：行列交叉形成的最小格子。
-- **网格区域**：由若干单元格组成的矩形区域。
+- **网格线**：轨道之间的线，从 `1` 编号，`-1` 指最后一条。
+- **区域**：若干单元格组成的矩形。
 
-## 3. 容器属性
+### 3. 容器属性
 
 | 属性 | 作用 |
 | --- | --- |
-| `grid-template-columns` / `grid-template-rows` | 定义列和行的尺寸 |
-| `gap` | 轨道间距（`row-gap` / `column-gap`） |
+| `grid-template-columns` / `rows` | 定义列和行的尺寸 |
+| `gap` | 轨道间距 |
 | `grid-template-areas` | 用命名区域描述布局结构 |
-| `justify-items` / `align-items` | 项目在单元格内的水平 / 垂直对齐 |
+| `justify-items` / `align-items` | 项目在单元格内的对齐 |
 | `justify-content` / `align-content` | 整个网格在容器内的对齐 |
-| `grid-auto-rows` / `grid-auto-columns` | 超出显式定义时，隐式轨道的尺寸 |
+| `grid-auto-rows` / `columns` | 隐式轨道（超出显式定义时）的尺寸 |
 
-常用函数与单位：
+三个必会写法：
 
 ```css
-grid-template-columns: 200px 1fr;              /* 固定列 + 剩余列 */
-grid-template-columns: repeat(3, 1fr);         /* 三等分 */
-grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));  /* 自适应列数 */
+grid-template-columns: 200px 1fr;                            /* 固定列 + 剩余列 */
+grid-template-columns: repeat(3, 1fr);                       /* 三等分 */
+grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); /* 自动列数 */
 ```
 
-`fr` 表示**剩余空间的比例单位**。它分配的是扣除固定尺寸和间距之后的空间，因此 `200px 1fr` 中 `1fr` 拿到的是剩余全部宽度。
+`fr` 是剩余空间的比例单位，分配的是扣除固定尺寸和间距之后的宽度。
 
-`minmax(160px, 1fr)` 让列宽最小 160px、最大按比例分配；配合 `auto-fill` 可在容器变宽时自动增加列数。
-
-## 4. 项目属性
+### 4. 项目属性
 
 | 属性 | 作用 |
 | --- | --- |
-| `grid-column` / `grid-row` | 指定项目跨占的列 / 行范围 |
-| `grid-area` | `grid-row-start / grid-column-start / grid-row-end / grid-column-end` 的简写，也可填区域名 |
+| `grid-column` / `grid-row` | 指定跨占的列 / 行范围 |
+| `grid-area` | 范围简写，或填写区域名 |
 | `justify-self` / `align-self` | 覆盖容器的单元格内对齐 |
 
 ```css
-.item { grid-column: 1 / 3; }   /* 从第 1 条列线跨到第 3 条，占两列 */
-.item { grid-column: 2 / -1; }  /* 从第 2 条列线跨到最后一条 */
+.item { grid-column: 1 / 3; }   /* 占第 1 到第 3 条线之间，即两列 */
+.item { grid-row: 2 / -1; }
 ```
 
-## 5. 区域模板演示
+### 5. 典型用法
 
-`grid-template-areas` 用可视化的字符串描述布局，结构一目了然：
+`grid-template-areas` 用字符串画出布局结构：
 
 <Sandpack
   template="static"
-  height={280}
+  height={260}
   html={`<div class="page">
   <header>header</header>
   <aside>aside</aside>
@@ -76,7 +74,7 @@ grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));  /* 自适应列�
     "aside  main"
     "footer footer";
   gap: 6px;
-  height: 240px;
+  height: 220px;
 }
 .page > * { display: flex; align-items: center; justify-content: center; border-radius: 4px; }
 header { grid-area: header; background: #bfdbfe; }
@@ -85,36 +83,51 @@ main   { grid-area: main;   background: #eff6ff; }
 footer { grid-area: footer; background: #bfdbfe; }`}
 />
 
-每个名字对应一个矩形区域，同名单元格合并，写成矩形的才能生效，不能出现 L 形。
+同名的单元格合并成一块区域，且必须是矩形。
 
-## 6. 三个易错点
+### 6. 适用场景
 
-**`fr` 的最小值是 `auto`，内容会撑破网格。** `1fr` 实际是 `minmax(auto, 1fr)`，内容的最小固有宽度会顶住轨道。内容含长单词、长 URL 时写法改为 `minmax(0, 1fr)`，或给项目加 `min-width: 0`。
+- 页面骨架：头部、侧边、主内容、页脚。
+- 卡片网格、商品列表、图片墙。
+- 需要跨行跨列的布局：数据看板、杂志式排版。
+- 响应式列数：`repeat(auto-fill, minmax(...))` 一行替代多组媒体查询。
 
-**`auto-fill` 与 `auto-fit` 不同。** 容器宽 900px、每列最小 160px 时，`auto-fill` 会留出 5 个轨道（含空的），项目只占前几个，右侧留白；`auto-fit` 会折叠空轨道，项目被拉伸填满整行。
-
-**隐式网格需要单独设尺寸。** 项目数量超出 `grid-template-rows` 定义的行数时，新增行使用 `grid-auto-rows` 的尺寸，默认是 `auto`，容易出现高度不一致。
-
-## 7. 与 Flex 的分工
+### 7. Grid 与 Flex 怎么选
 
 | 维度 | Flex | Grid |
 | --- | --- | --- |
-| 布局维度 | 一维（主轴） | 二维（行 + 列） |
-| 尺寸决定 | 由内容撑开，再分配剩余空间 | 先定轨道，再放置内容 |
-| 适合 | 导航、工具栏、等高列、弹性分配 | 页面骨架、卡片网格、仪表盘 |
-| 跨行跨列 | 需嵌套容器 | 原生支持 |
+| 维度 | 一维 | 二维 |
+| 尺寸来源 | 内容先撑开，再分配剩余空间 | 先定轨道，再放内容 |
+| 跨行跨列 | 需要嵌套 | 原生支持 |
+| 适合 | 导航、工具栏、等高列 | 页面骨架、卡片网格 |
 
-## 8. 适用场景
+页面骨架用 Grid，其中某个区域内部再用 Flex，是最常见的组合。
 
-- 页面骨架：头部、侧边栏、主内容、页脚。
-- 卡片网格：商品列表、图片墙、仪表盘面板。
-- 需要跨行跨列的布局：数据看板、杂志式排版。
-- 表单或详情页的标签与内容对齐。
-- 响应式列数：`repeat(auto-fill, minmax(…))` 一行搞定，不必写多组媒体查询。
+## 加深理解
 
-判断标准：**只在一个方向排布用 Flex，需要行列同时对齐用 Grid。**两者常组合使用——页面骨架用 Grid，其中某个区域内部用 Flex。
+### `auto-fill` 和 `auto-fit` 有什么区别？
 
----
+两者都按 `minmax` 的最小值算出能放几列，区别在空轨道参不参与平分。`auto-fill` 让空轨道照常占一份空间，项目宽度不变；`auto-fit` 让空轨道不占空间，项目被拉伸铺满。两者只在项目数少于轨道数时有差异。
+
+<Sandpack
+  template="static"
+  height={180}
+  html={`<div class="grid fill"><div>1</div><div>2</div><div>3</div></div>
+<div class="grid fit"><div>1</div><div>2</div><div>3</div></div>`}
+  css={`body { margin: 0; padding: 12px; font-family: system-ui, sans-serif; font-size: 12px; }
+.grid { width: 300px; display: grid; gap: 4px; background: #e2e8f0; margin-bottom: 10px; }
+.fill { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); }
+.fit  { grid-template-columns: repeat(auto-fit,  minmax(70px, 1fr)); }
+.grid > div { height: 36px; display: flex; align-items: center; justify-content: center; background: #60a5fa; color: #fff; border-radius: 4px; }`}
+/>
+
+### 300px 容器、`minmax(70px, 1fr)`、`gap: 4px`，轨道数怎么定？
+
+先按最小值试算：n 条轨道占 `n×70 + (n−1)×4`。n=4 时 292 ≤ 300，n=5 时 366 > 300，所以取 4 条。`gap` 只加在轨道之间、两端不加，4 条轨道对应 3 个间距；轨道数定完后 `1fr` 再平分剩余宽度。
+
+### 为什么 `1fr` 会被内容撑破？
+
+`1fr` 等价于 `minmax(auto, 1fr)`，`auto` 的最小值取内容的最小固有宽度。长单词、长 URL 会顶住轨道，改成 `minmax(0, 1fr)` 或给项目加 `min-width: 0` 即可。
 
 ## 你的回答
 

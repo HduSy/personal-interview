@@ -1,21 +1,23 @@
 # 06. HTML5 新特性有哪些？
 
-## 1. 什么是 HTML5？
+## 高频问答
+
+### 1. 什么是 HTML5？
 
 **HTML5** 不仅仅是 HTML 语法的第五次修订，而是一套**代表下一代 Web 开发标准的综合技术体系**（涵盖了 HTML 语义标记、CSS3 样式呈现以及一系列前所未有的强大 JavaScript Web API）。
 
 它的核心设计目标是：**减少对外部插件（如 Flash、Silverlight）的依赖、提升代码语义化与可访问性、并为移动端和现代富 Web 应用（SPA/PWA）提供底层原生能力**。
 
-## 2. HTML5 核心新特性分类详解
+### 2. HTML5 核心新特性分类详解
 
-### (1) 语义化标签（Semantic Elements）
+#### (1) 语义化标签（Semantic Elements）
 
 摒弃了通篇使用 `<div>` 和 `<span>` 的堆砌，引入了一批具有明确结构含义的标签，极大提升了 SEO 与无障碍可访问性（a11y）：
 
 - **页面骨架**：`<header>`、`<nav>`、`<main>`、`<article>`、`<section>`、`<aside>`、`<footer>`。
 - **内容细化**：`<figure>` 与 `<figcaption>`（图文配图）、`<time>`（标准化时间）、`<mark>`（高亮文本）、`<progress>`（进度条）。
 
-### (2) 增强型表单（Form Improvements）
+#### (2) 增强型表单（Form Improvements）
 
 提供了更丰富的表单输入类型和客户端原生校验机制，大幅降低了表单验证的 JS 代码量：
 
@@ -27,7 +29,7 @@
   - `autofocus`：页面加载后自动获得焦点。
   - `autocomplete`：自动补全提示。
 
-### (3) 原生多媒体支持（Audio & Video）
+#### (3) 原生多媒体支持（Audio & Video）
 
 彻底摆脱了早期对 Adobe Flash 等第三方插件的依赖：
 
@@ -35,14 +37,14 @@
 - `<audio src="music.mp3" controls></audio>`
 - 支持通过 `<source>` 标签适配多种格式（mp4、webm、ogg），并暴露了完备的 JS 控制 API（`play()`、`pause()`、`currentTime` 等）。
 
-### (4) 图形与可视化（Canvas & SVG）
+#### (4) 图形与可视化（Canvas & SVG）
 
 赋予了浏览器在客户端直接进行复杂图形渲染和动效展示的能力：
 
 - **`<canvas>`**：基于**像素的位图**渲染，使用 JavaScript 动态绘制 2D 图形与 WebGL 3D 场景（适合高性能游戏、数据图表）。
 - **`<svg>`**：基于 **XML 的矢量图形**，放大缩小不失真，每个图形元素都可作为 DOM 节点绑定事件（适合图标、复杂高保真图表）。
 
-### (5) 客户端本地存储（Client-side Storage）
+#### (5) 客户端本地存储（Client-side Storage）
 
 解决了传统 Cookie 容量小（仅 4KB）且每次请求都会携带到 HTTP Header 上的性能与安全缺陷：
 
@@ -50,7 +52,7 @@
 - **`sessionStorage`**：会话级本地存储，生命周期仅限于当前标签页，标签页关闭即销毁。
 - **`IndexedDB`**：浏览器内置的 NoSQL 事务型对象数据库，支持海量结构化数据存储和异步索引检索。
 
-### (6) 强大的新 JavaScript Web APIs
+#### (6) 强大的新 JavaScript Web APIs
 
 HTML5 规范中包含了大量赋予 Web 接近原生 Native 应用能力的系统级 API：
 
@@ -63,15 +65,13 @@ HTML5 规范中包含了大量赋予 Web 接近原生 Native 应用能力的系�
 | **Drag & Drop** | 原生拖拽 API（`draggable="true"`、`dragstart`、`drop` 等事件） |
 | **Notification API** | 浏览器桌面级系统推送通知 |
 
-## 3. 简化与废弃的旧特性
+### 3. 简化与废弃的旧特性
 
 - **化繁为简**：
   - 文档声明极简化：`<!DOCTYPE html>`
   - 编码声明极简化：`<meta charset="UTF-8">`
   - script 与 link 省略 type：默认即为 `text/javascript` 和 `text/css`。
 - **废弃纯表现型标签**：淘汰了 `<font>`、`<center>`、`<big>`、`<frame>`、`<frameset>` 等标签，严格推崇「HTML 负责结构、CSS 负责表现」的分离原则。
-
----
 
 ## 你的回答
 
@@ -92,7 +92,7 @@ H5 的新特性主要包括：
 5. 新增了一些新的 JavaScript API：
    - 例如 history API、geolocation、web workers、WebSocket、drag-drop 等。
 
-## 口述点评
+### 口述点评
 
 **评分：10/10** 🏆
 

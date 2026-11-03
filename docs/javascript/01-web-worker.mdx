@@ -2,7 +2,9 @@ import { Mermaid } from '../../components';
 
 # 01. 对 Web Worker 的理解
 
-## 1. 需要 Web Worker 的原因
+## 高频问答
+
+### 1. 需要 Web Worker 的原因
 
 JavaScript 是单线程的，浏览器中 JS 引擎线程与 GUI 渲染线程互斥。主线程执行高耗时计算（大型算法、大文件切片哈希、海量数据清洗、图像/视频滤镜）时，事件循环被阻塞，页面无法响应点击、滚动，也无法按时完成每帧 16.6ms 的重绘，导致卡顿、无响应甚至假死。Web Worker 允许在主线程之外创建独立后台线程并行执行耗时任务，主线程专注 UI 渲染和用户交互。
 
@@ -19,7 +21,7 @@ sequenceDiagram
     Note over Main: onmessage 接收数据并局部更新 UI
 `} />
 
-## 2. 通信机制与数据传递
+### 2. 通信机制与数据传递
 
 主线程与 Worker 内存隔离，不能直接共享同一变量，只能通过消息传递通信：发送方 `postMessage(data)`，接收方监听 `onmessage`。三种传递方式：
 
@@ -27,7 +29,7 @@ sequenceDiagram
 2. **可转移对象**：针对 `ArrayBuffer`、`MessagePort`、`ImageBitmap` 等大二进制数据，零拷贝转移内存所有权，原线程数据变为 0 字节，耗时几乎为 0。
 3. **共享内存**：`SharedArrayBuffer` + `Atomics`，多线程共享同一块内存，`Atomics` 原子操作避免数据竞态。受 Spectre 漏洞影响，现代浏览器需在服务端配置 COOP 和 COEP 响应头才能启用。
 
-## 3. 运行环境与安全沙箱限制
+### 3. 运行环境与安全沙箱限制
 
 Worker 运行在 `DedicatedWorkerGlobalScope` 中，顶层对象是 `self` 而非 `window`，并受以下限制：
 
@@ -40,7 +42,7 @@ Worker 运行在 `DedicatedWorkerGlobalScope` 中，顶层对象是 `self` 而�
 | **同源策略限制** | **严格同源** | Worker 脚本文件的 URL 必须与主页面同源（本地测试不能用 `file://` 协议，跨域脚本需通过 Blob URL 转换绕过） |
 | **系统资源消耗** | **需手动销毁** | 每个 Worker 对应一个真实的操作系统线程，大量创建会迅速耗尽 CPU 和内存。使用完毕必须在主线程调用 `worker.terminate()` 或在内部调用 `self.close()` 主动释放 |
 
-## 4. Worker 类型与应用场景
+### 4. Worker 类型与应用场景
 
 Web Worker 分为三种：
 
@@ -55,7 +57,7 @@ Web Worker 分为三种：
 3. **Canvas 图像与音视频滤镜**：结合 `OffscreenCanvas`，把 WebGL/2D 渲染放到 Worker 后台线程。
 4. **语法高亮与代码格式化**：Monaco Editor 的语法解析器放在 Web Worker 中异步处理。
 
-## 5. 最小化代码模板
+### 5. 最小化代码模板
 
 ```javascript
 // main.js (主线程)
@@ -91,8 +93,6 @@ self.onmessage = function (e) {
   }
 };
 ```
-
----
 
 ## 你的回答
 

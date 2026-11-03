@@ -2,7 +2,9 @@ import { Mermaid } from '../../components';
 
 # 04. script 标签中 defer 和 async 的区别
 
-## 1. 为什么需要 defer 与 async？（默认 script 的阻塞机制）
+## 高频问答
+
+### 1. 为什么需要 defer 与 async？（默认 script 的阻塞机制）
 
 默认情况下，当浏览器 HTML 解析器遇到 `<script src="...">` 时，会**立即停止（阻塞）HTML 解析**：
 1. 暂停 DOM 树的构建；
@@ -14,13 +16,13 @@ import { Mermaid } from '../../components';
 
 为了解决这一痛点，HTML5 提供了两个布尔属性：**`defer`（推迟）** 与 **`async`（异步）**。
 
-## 2. defer 与 async 的核心区别
+### 2. defer 与 async 的核心区别
 
 两者的共同点是：**脚本的网络下载过程都是异步并行的，绝不阻塞 HTML 的解析过程**。
 
 核心差异在于两个关键维度：**执行时机** 与 **执行顺序保证**。
 
-### 核心特性对比表
+#### 核心特性对比表
 
 | 特性维度 | 普通 `<script>` | `<script defer>` | `<script async>` |
 | --- | --- | --- | --- |
@@ -30,7 +32,7 @@ import { Mermaid } from '../../components';
 | **与 DOMContentLoaded 的关系** | 阻碍事件触发 | 保证在 `DOMContentLoaded` 触发**之前**全部执行完成 | **不确定**：可能在 `DOMContentLoaded` 触发之前或之后执行 |
 | **典型适用场景** | 遗留代码（通常置于 `<body>` 底部） | 依赖完整 DOM 树、或存在上下文依赖关系的业务核心脚本（如主应用 bundle） | 独立运行、不依赖 DOM 也不被其他脚本依赖的脚本（如埋点、Google Analytics、广告 SDK） |
 
-### 加载与执行流程对比
+#### 加载与执行流程对比
 
 <Mermaid chart={`
 sequenceDiagram
@@ -64,13 +66,11 @@ sequenceDiagram
     end
 `} />
 
-## 3. 进阶延伸：type="module" 的行为
+### 3. 进阶延伸：type="module" 的行为
 
 现代前端普遍采用的 ES 模块脚本（`<script type="module" src="...">`）：
 - **默认具备 `defer` 的行为**：在后台异步并行下载，待整个 DOM 文档解析完成后、在 `DOMContentLoaded` 触发前按标签顺序依次执行。
 - **若显式添加 `async` 属性**（`<script type="module" async src="...">`）：则行为转变为 `async`，即模块及其所有依赖项一旦全部下载编译完毕，便立即中断主线程执行。
-
----
 
 ## 你的回答
 
@@ -90,7 +90,7 @@ defer 和 async 都可以让浏览器并行下载 JS，而不用阻塞 HTML 的�
    - defer：适合有依赖关系的脚本声明。比如主 bundle（如 React JS），要先加载完成，才能执行业务的 JS。
    - async：比较适用于独立的脚本。比如打点、埋点上报脚本，或者 Google Ads 等这样的脚本。
 
-## 口述点评
+### 口述点评
 
 **评分：9.5/10**
 
