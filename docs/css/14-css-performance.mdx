@@ -1,0 +1,91 @@
+import { Sandpack } from '../../components';
+
+# 14. CSS 提高性能的方法有哪些？
+
+## 高频问答
+
+### 1. 加载层：让 CSS 更快到达
+
+- **压缩与合并**：构建时压缩（去空白、简写合并），HTTP/2 下按页面拆分按需加载，避免单个巨型 CSS。
+- **关键 CSS（Critical CSS）**：首屏样式内联进 HTML，其余样式异步加载，消除渲染阻塞带来的白屏。
+- **移除无用样式**：PurgeCSS、UnCSS 按实际用到的类名裁剪，Tailwind 的 JIT 天然产出量小。
+- **按需加载**：路由级或组件级拆分，主题、打印样式用 `media` 属性条件加载：
+
+  ```html
+  <link rel="stylesheet" href="print.css" media="print">
+  ```
+
+### 2. 渲染层：少触发回流重绘
+
+- **动画只用 `transform` 和 `opacity`**：只走合成阶段，不触发布局和绘制；改 `width`、`top`、`margin` 会反复回流。
+- **动画元素提升为合成层**：`will-change: transform` 或 `translateZ(0)`，注意只加给真正动画的少数元素，滥用会吃内存。
+- **批量读写 DOM**：先集中读布局信息（`offsetWidth`、`getBoundingClientRect`），再集中写，避免强制同步布局。
+- **用 class 批量改样式**：一次改 class 优于循环里逐条写 `style.xxx`。
+
+### 3. 选择器层：写浏览器好匹配的样式
+
+- **从右往左匹配**：`div p .title` 先找 `.title` 再向上验证。避免最右端是通配符或标签的深层嵌套，如 `.nav ul li a span`。
+- **避免过深层级**：三代以内的选择器足够，BEM 或原子化 CSS 直接单类名命中，匹配最快。
+- **少用代价高的选择器**：`*` 通配、属性选择器 `[href^="..."]`、`:nth-child` 复杂表达式在大文档上开销大，按需使用。
+
+### 4. 布局层：用现代布局替代 hack
+
+- **Flex/Grid 替代浮动布局**：布局计算由引擎原生处理，比 float + 清除浮动的 hack 更快更稳。
+- **`content-visibility: auto`**：跳过视口外长列表的渲染，长页面首屏渲染明显变快，配合 `contain-intrinsic-size` 防止滚动条跳动。
+- **`contain: layout paint`**：声明元素的渲染边界，内部变化不波及外部。
+
+### 5. 沙箱实测：transform 与 top 动画的性能差
+
+两个方块做同样的往返移动动画，左边改 `top`，右边用 `transform`。打开控制台的 Performance 面板录制，左边持续出现紫色 Layout 条：
+
+<Sandpack
+  template="static"
+  height={200}
+  html={`<div class="stage">
+  <div class="track">
+    <span class="label">top（回流）</span>
+    <div class="box top-anim"></div>
+  </div>
+  <div class="track">
+    <span class="label">transform（合成）</span>
+    <div class="box transform-anim"></div>
+  </div>
+</div>`}
+  css={`body { margin: 0; font-family: system-ui, sans-serif; font-size: 12px; }
+.stage { height: 170px; display: flex; align-items: center; justify-content: center; gap: 60px; background: #f8fafc; }
+.track { position: relative; width: 120px; height: 120px; background: #e2e8f0; border-radius: 8px; }
+.label { position: absolute; top: 4px; left: 0; right: 0; text-align: center; color: #64748b; }
+.box { position: absolute; bottom: 8px; left: 20px; width: 80px; height: 36px; border-radius: 6px; background: #60a5fa; }
+@keyframes move-top { 0%, 100% { top: 76px; } 50% { top: 8px; } }
+@keyframes move-transform { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-68px); } }
+.top-anim { animation: move-top 1.6s linear infinite; }
+.transform-anim { animation: move-transform 1.6s linear infinite; }`}
+/>
+
+### 6. 高频追问
+
+**`link` 加 `rel="preload"` 有什么用？** 让 CSS 提前下载，与 HTML 解析并行，缩短首屏阻塞时间；加载完成后再切换为正式样式表。
+
+**CSS 文件应该放哪？** `<head>` 内。放 body 末尾会先渲染无样式内容再闪变（FOUC）；放 head 配合关键 CSS 内联，首屏体验最好。
+
+**`@import` 和 `<link>` 的区别？** `@import` 要等所在 CSS 下载解析后才发起子请求，串行阻塞；`<link>` 与 HTML 解析并行，且可被 preload。生产环境用 `<link>`。
+
+**CSS 会让页面变慢的根本原因是什么？** 两点：样式表阻塞渲染（下载完才能画首屏）；运行时选择器匹配与样式重算占主线程。优化就是围绕这两点：加载更快、重算更少。
+
+## 加深理解
+
+### 为什么选择器从右往左匹配
+
+一个元素只属于一条路径的末端，但可能有成千上万个候选。先按最右端的「关键选择器」缩小范围，再向上验证祖先，比从左边某个宽泛祖先出发向下穷举快得多。这也是为什么最右端避免 `*` 和深层级标签。
+
+### 强制同步布局怎么发生
+
+一次 JS 执行里「写样式 → 读布局 → 写样式 → 读布局」交替时，每次读都会因为前面的写未生效而强制计算布局。批量化的做法是把读写分成两个阶段，循环内只写。
+
+### `will-change` 的正确用法
+
+它告诉浏览器「这个元素即将变化」，浏览器会提前分配合成层。只对即将动画的元素设置，动画结束后移除；对大量元素常驻设置会导致内存暴涨与层爆炸，反而更慢。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）
