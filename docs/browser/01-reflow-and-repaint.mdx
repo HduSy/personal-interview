@@ -1,0 +1,103 @@
+import { Sandpack } from '../../components';
+
+# 01. 怎么理解回流和重绘？什么场景下会触发？
+
+## 高频问答
+
+### 1. 区别
+
+- **回流（reflow，也叫重排）**：元素的**几何属性**变化，浏览器重新计算布局，确定每个盒子的位置和尺寸。
+- **重绘（repaint）**：元素**外观**变化但几何不变，浏览器重新绘制像素。
+
+两者是包含关系：**回流一定引起重绘，重绘不一定引起回流**。回流的代价远高于重绘，因为布局计算会波及整个文档（父元素、兄弟元素）。
+
+### 2. 在渲染流程中的位置
+
+```
+DOM → 样式计算 → 布局（回流） → 绘制（重绘） → 合成
+```
+
+样式计算得出每个元素的计算样式；布局根据样式算出几何位置；绘制把元素画成像素；合成把图层合并输出到屏幕。
+
+### 3. 触发回流的场景
+
+- 添加、删除、移动 DOM 节点
+- 元素尺寸、位置变化：`width`、`height`、`margin`、`padding`、`border`、`top`、`left`
+- 内容变化：文字增减、图片尺寸变化、字体大小变化
+- `display`、`position`、`float`、`flex` 等布局属性变化
+- 窗口 `resize`、字体加载完成
+- **读取布局属性**：`offsetWidth`、`offsetHeight`、`clientWidth`、`scrollTop`、`getBoundingClientRect()`、`getComputedStyle()`。读取时若前面的样式修改尚未生效，浏览器会**强制同步计算布局**，这称为强制同步布局。
+
+### 4. 触发重绘的场景
+
+几何不变、只改外观：
+
+- `color`、`background-color`、`background-image`
+- `visibility`、`outline`、`box-shadow`、`border-radius`
+- `text-decoration`
+
+### 5. 优化手段
+
+- **批量修改样式**：用 class 一次性切换，不要逐条改 `style.xxx`。
+- **离线操作 DOM**：`documentFragment` 拼接后一次插入；或先 `display: none` 改完再恢复。
+- **读写分离**：先集中读取所有布局信息，再集中写入，避免「读—写—读—写」交替。
+- **用 `transform` / `opacity` 做动画**：不触发布局和绘制，只走合成。
+- **`will-change` 或 `translateZ(0)`**：提前把元素提升为合成层。
+
+### 6. 高频追问
+
+**为什么 `transform` 动画不回流？** 它不改变布局盒的尺寸和位置，浏览器把变换交给合成线程处理，不进入布局阶段。
+
+**为什么读 `offsetWidth` 也会回流？** 读之前如果有未生效的样式改动，浏览器必须先算出最新布局才能返回准确值，于是同步执行一次布局。
+
+**`display: none` 的元素参与布局吗？** 不参与。它不生成盒子，所以对它做修改不会触发回流，直到重新显示。
+
+## 加深理解
+
+### 读写交替为什么慢
+
+下面两组代码做同样的修改，左边读写交替，右边读写分离，控制台会输出耗时：
+
+<Sandpack
+  template="static"
+  height={260}
+  showConsole
+  html={`<div id="box">操作目标</div>
+<p>打开控制台查看耗时</p>`}
+  css={`body { margin: 0; padding: 16px; font-family: system-ui, sans-serif; font-size: 13px; }
+#box { width: 100px; height: 40px; background: #93c5fd; border-radius: 4px; }`}
+  js={`const box = document.getElementById('box');
+const N = 300;
+
+// 读写交替：每次都强制同步布局
+let t1 = performance.now();
+for (let i = 0; i < N; i++) {
+  box.style.width = (100 + i % 10) + 'px';
+  box.offsetWidth; // 强制浏览器立即计算布局
+}
+let t2 = performance.now();
+
+// 只写不读：布局推迟到循环结束后统一计算
+let start = performance.now();
+for (let i = 0; i < N; i++) {
+  box.style.width = (100 + i % 10) + 'px';
+}
+let end = performance.now();
+
+console.log('读写交替:', (t2 - t1).toFixed(2), 'ms');
+console.log('批量写入:', (end - start).toFixed(2), 'ms');`}
+/>
+
+差别来自**强制同步布局**：交替时每一次写都立刻被一次布局计算吞掉，300 次就是 300 次布局；只写时布局被合并，循环结束只需要一次。
+
+### 回流代价为什么高
+
+布局是全局计算：一个元素变宽可能推动兄弟元素、撑高父元素、影响后续所有盒子的位置。绘制只是把已有几何画成像素，不改变盒子之间的相对关系。
+
+### 现代浏览器有什么变化
+
+渲染管线已细化为样式、布局、预绘制、绘制、合成多个阶段，部分变换和透明度可以被跳过布局直接合成。面试仍按「回流 / 重绘 / 合成」三层描述即可，但要避免说「只要是动画就一定回流」。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）

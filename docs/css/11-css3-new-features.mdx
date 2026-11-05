@@ -1,0 +1,87 @@
+import { Sandpack } from '../../components';
+
+# 11. CSS3 新增了哪些特性？
+
+## 高频问答
+
+### 1. CSS3 是什么
+
+CSS3 不是一个单一版本，而是**一组按模块拆分的规范**：选择器、背景与边框、颜色、布局、动画、字体各自独立演进，每个模块有自己的 Level。
+
+所以「CSS3 新特性」实际指的是这些模块新增的能力，按用途分五类比较好记：**选择器、布局、视觉、动画、响应式**。
+
+### 2. 选择器与变量
+
+- 属性选择器：`[attr^="val"]`、`[attr$="val"]`、`[attr*="val"]`
+- 结构伪类：`:nth-child()`、`:nth-of-type()`、`:first-of-type`、`:empty`
+- 逻辑伪类：`:not()`、`:is()`、`:where()`、`:has()`
+- 伪元素：`::before`、`::after`、`::selection`、`::placeholder`
+- 自定义属性：`--color: #fff` 配合 `var(--color)`
+- 计算函数：`calc()`、`clamp()`、`min()`、`max()`
+
+### 3. 布局
+
+- **Flexbox**：一维弹性布局
+- **Grid**：二维网格布局
+- **多列布局**：`column-count`、`column-gap`
+- `box-sizing: border-box`
+- `aspect-ratio`：直接声明宽高比
+
+### 4. 视觉与动画
+
+视觉：`border-radius`、`box-shadow`、`text-shadow`、`linear-gradient` / `radial-gradient`、`filter`、`mix-blend-mode`、`opacity`、`rgba()` / `hsl()`。
+
+动画：`transition` 过渡、`@keyframes` + `animation` 关键帧动画、`transform` 的 2D（`translate` / `scale` / `rotate`）与 3D（`perspective`、`rotate3d`）变换。
+
+下面这个卡片同时用了渐变、圆角、阴影、过渡和变换：
+
+<Sandpack
+  template="static"
+  height={200}
+  html={`<div class="wrap">
+  <div class="card">hover 我</div>
+</div>`}
+  css={`body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+.wrap { height: 170px; display: flex; align-items: center; justify-content: center; background: #f8fafc; }
+.card {
+  width: 140px; height: 80px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; border-radius: 12px;
+  background: linear-gradient(135deg, #60a5fa, #a78bfa);
+  box-shadow: 0 4px 12px rgba(96, 165, 250, .4);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.card:hover { transform: translateY(-6px) scale(1.05); box-shadow: 0 10px 24px rgba(96, 165, 250, .55); }`}
+/>
+
+### 5. 响应式
+
+- 媒体查询：`@media (max-width: 768px)`
+- 视口单位：`vw`、`vh`、`dvh`
+- 容器查询：`@container` 配合 `container-type`
+
+### 6. 高频追问
+
+**CSS3 和 CSS4 有什么区别？** 没有 CSS4 这个整体版本。CSS 早已改为模块化演进，所谓「CSS4 特性」实际是某些模块的新 Level，比如 `:has()`、容器查询、`subgrid`、嵌套（nesting）、`@layer`、`color-mix()`。
+
+**Flex 和 Grid 算 CSS3 吗？** 算。它们各自是独立的模块（Flexible Box Layout、Grid Layout），只是不再挂在「CSS3」这个总版本号下。
+
+**最该记住的三个？** `flex` / `grid` 改变布局方式，`transition` / `animation` 让 CSS 具备动效能力，`var()` 让样式有了变量和主题能力。
+
+## 加深理解
+
+### 为什么没有统一的 CSS3 规范文档？
+
+早期 CSS 是单一大规范，一次修订的周期极长。2000 年代改为按模块拆分后，各模块可以独立推进到 Level 1、Level 2，互不阻塞。所以查新特性时，应该按模块名去查，而不是找「CSS3 规范」。
+
+### `rgba()` 和 `opacity` 有什么区别？
+
+`opacity` 作用于整个元素及其子元素，会创建层叠上下文，且不可被子元素抵消；`rgba()` 只作用于该属性的颜色，子元素不受影响。
+
+### 哪些特性实际还没广泛可用？
+
+`@scope`、`subgrid` 的部分能力、`anchor positioning` 仍处于较新阶段，面试时说明「较新、需查兼容性」即可，不要当作通用能力陈述。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）

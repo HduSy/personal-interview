@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>FE Interview</title>
+  <desc>渐变圆角方块中，代码括号之间生长出一株新芽</desc>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0095FF"/>
+      <stop offset="1" stop-color="#42D392"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#g)"/>
+  <polyline points="21,21 13,32 21,43" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="43,21 51,32 43,43" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M32 46 V33" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M32 38 C27 38 23.5 34 23 28 C28.5 28.5 32 33 32 38 Z" fill="#fff"/>
+  <path d="M32 34 C37 34 40.5 30 41 24 C36 24.5 32 29 32 34 Z" fill="#fff"/>
+</svg>

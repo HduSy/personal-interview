@@ -1,0 +1,201 @@
+import { Sandpack } from '../../components';
+
+# 13. 什么是响应式设计？基本原理和实现方式？
+
+## 高频问答
+
+### 1. 一套代码适配所有屏幕
+
+响应式设计（Responsive Web Design）指同一份 HTML/CSS 能根据访问设备的屏幕尺寸、方向、分辨率自动调整布局、字号和媒体资源，在手机、平板、桌面都呈现良好的阅读体验。
+
+与之常被对比的是自适应设计（Adaptive）：为几类固定设备分别准备布局，检测到设备后切换到对应版本。区别在于中间尺寸——响应式是连续流动的，自适应只在断点间跳变。
+
+| 维度 | 响应式 Responsive | 自适应 Adaptive |
+| --- | --- | --- |
+| 布局数量 | 一套，随视口连续变化 | 多套，断点间固定跳变 |
+| 适配方式 | 内容随视口流动 + 断点重排 | 检测设备后分发对应布局 |
+| 维护成本 | 低（一份代码） | 高（每套布局单独维护） |
+| 典型方案 | 流式布局 + 媒体查询 | 服务端 UA 检测 / 独立移动站 |
+
+### 2. 基本原理：三个支柱
+
+响应式设计的经典定义来自 Ethan Marcotte（2010），由三件事组成：
+
+- **流式网格（Fluid Grid）**：尺寸用相对单位（百分比、`fr`、`rem`）而不是固定 `px`，元素随视口宽度等比伸缩。
+- **弹性图片（Flexible Images）**：媒体不超出容器，`max-width: 100%`，需要时按视口提供不同分辨率的资源。
+- **媒体查询（Media Queries）**：在视口到达特定断点时改变布局结构（如多栏变单栏、隐藏侧边栏）。
+
+一句话概括：**内容随视口流动，流动不下时在断点处重排**。媒体查询负责「重排」，流式单位负责两次重排之间的「连续适配」——只有断点没有流式单位，页面在断点之间会出现横向滚动条或大片空白。
+
+### 3. 前提：viewport meta 标签
+
+移动端浏览器默认把页面按 980px 宽渲染再整体缩小，布局永远不会触发移动端断点。响应式的第一行代码是：
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+```
+
+`width=device-width` 让布局视口等于设备逻辑宽度，媒体查询才有正确的判断依据。
+
+### 4. 媒体查询与移动优先
+
+```css
+/* 移动优先：默认样式即移动端样式，向大屏叠加 */
+.grid { grid-template-columns: 1fr; }
+
+@media (min-width: 768px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 1024px) {
+  .grid { grid-template-columns: repeat(3, 1fr); }
+}
+```
+
+两种写法的区别在级联方向：`min-width`（移动优先）从小往大**逐层叠加**，后面的查询只需写增量；`max-width`（桌面优先）从大往小**逐层覆盖**，每个查询都要覆盖前面的大量属性。工程上推荐移动优先——代码增量少，也符合「移动端资源受限、渐进增强」的思路。
+
+### 5. 流式布局：Grid / Flex / 百分比
+
+布局容器用流式单位，让列数和列宽自动适配：
+
+```css
+/* 卡片墙：无断点自动换列，容器放得下几列就排几列 */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+/* 侧边栏固定、主内容流动 */
+.layout {
+  display: flex;
+}
+.layout aside { width: 16rem; }
+.layout main { flex: 1; }
+```
+
+`auto-fit + minmax` 组合能在没有任何媒体查询的情况下完成列数自适应，是「能用流式解决的就不写断点」的典型示范。
+
+### 6. 流体字号与 clamp()
+
+字号和间距用相对单位跟随视口缩放，`clamp()` 限定上下限：
+
+```css
+h1 {
+  /* 最小 1.25rem，随视口流动，最大 2.5rem */
+  font-size: clamp(1.25rem, 1rem + 2vw, 2.5rem);
+}
+
+.page {
+  padding-inline: clamp(1rem, 5vw, 4rem);
+}
+```
+
+`clamp(最小值, 首选值, 最大值)` 等价于 `max(min, min(preferred, max))`，避免了纯 `vw` 在大屏上过大、小屏上过小的问题，是流体排版（Fluid Typography）的标准写法。
+
+### 7. 响应式图片
+
+按设备提供合适尺寸/分辨率的图片，避免小屏加载大图：
+
+```html
+<!-- 同一图片的不同分辨率，浏览器按视口和 DPR 自选 -->
+<img
+  src="photo-800.jpg"
+  srcset="photo-400.jpg 400w, photo-800.jpg 800w, photo-1600.jpg 1600w"
+  sizes="(max-width: 600px) 100vw, 50vw"
+  alt="示例"
+/>
+
+<!-- 不同裁切/格式用 <picture> -->
+<picture>
+  <source type="image/avif" srcset="photo.avif" />
+  <source type="image/webp" srcset="photo.webp" />
+  <img src="photo.jpg" alt="示例" />
+</picture>
+```
+
+配合 `max-width: 100%; height: auto;` 保证任何图片都不会撑破容器。
+
+### 8. 容器查询：组件级响应式
+
+媒体查询只能感知视口，组件被放进窄侧栏还是宽主区无从得知。容器查询让组件响应**自己父容器**的尺寸：
+
+```css
+.card-wrap { container-type: inline-size; }
+
+@container (min-width: 400px) {
+  .card { display: flex; }   /* 容器够宽时横排，否则竖排 */
+}
+```
+
+组件因此获得真正的自适应性——放到哪里都正确，是响应式设计从「页面级」走向「组件级」的关键补充。
+
+### 9. 演示
+
+拖动预览边缘改变宽度：卡片列数随 `auto-fit` 自动增减，标题字号随 `clamp()` 流动，窄屏下导航折叠——没有一行 JS：
+
+<Sandpack
+  template="static"
+  height={320}
+  html={`<header>
+  <nav>首页 分类 关于</nav>
+</header>
+<main class="grid">
+  <article class="card">卡片一</article>
+  <article class="card">卡片二</article>
+  <article class="card">卡片三</article>
+  <article class="card">卡片四</article>
+  <article class="card">卡片五</article>
+  <article class="card">卡片六</article>
+</main>`}
+  css={`body { margin: 0; font-family: system-ui, sans-serif; background: #f8fafc; }
+header { display: flex; justify-content: flex-end; padding: 10px clamp(1rem, 5vw, 3rem); background: #1e293b; }
+nav { color: #fff; font-size: 14px; display: flex; gap: 16px; }
+@media (max-width: 480px) {
+  header::before { content: '☰'; color: #fff; margin-right: auto; font-size: 18px; }
+  nav { display: none; }
+}
+main { padding: clamp(1rem, 5vw, 3rem); }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+.card {
+  padding: 24px 12px;
+  text-align: center;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: clamp(.75rem, .5rem + 1vw, 1rem);
+  color: #334155;
+}`}
+/>
+
+### 10. 高频追问
+
+**响应式和自适应怎么区分？** 响应式一套布局连续流动，断点只做重排；自适应准备多套固定布局按设备切换。响应式是「liquid」，自适应是「switch」。
+
+**断点怎么定？** 按内容定，不按设备定——当布局开始出现挤压或空白时插入断点，而不是罗列 iPhone/Galaxy 的具体宽度。设备清单无穷尽，内容是唯一稳定的依据。常见实践是从 `360 / 768 / 1024 / 1280` 这类整数档位起步再按内容微调。
+
+**rem 布局方案和 vw 方案是什么？** 两种移动端等比缩放方案：rem 方案用 JS（或 CSS）把根字号设为视口宽度的函数，全部尺寸用 `rem`，页面随视口整体等比缩放；vw 方案直接用 `vw` 写尺寸，原理相同且不依赖 JS，但要配合 `clamp`/上限防止极端屏过大小。两者都是「整页等比缩放」思路，与流式布局的「内容自适应」是不同流派。
+
+**移动端适配方案里的 1px 边框怎么处理？** `border-width: 1px` 在高 DPR 屏上偏粗，可用 `transform: scale(0.5)` 的伪元素、`0.5px` 加媒体查询兜底，或按 `devicePixelRatio` 动态计算。
+
+## 加深理解
+
+### 为什么移动优先不只是 CSS 书写顺序偏好？
+
+移动优先的默认样式就是所有设备共享的基础，桌面查询只是增强——这天然符合渐进增强和性能考量：移动端不会下载并解析一堆被 `max-width` 覆盖掉的大屏样式。桌面优先则要求小屏查询覆盖大屏样式，覆盖关系一深，维护时容易漏改基础层。
+
+### 媒体查询的局限是什么？
+
+媒体查询只感知视口这个「全局」变量。同一个卡片组件放进 300px 侧栏和 800px 主区时视口相同，组件却需要不同布局——这正是容器查询（`container-type` + `@container`）要解决的问题。面试时能指出「媒体查询是页面级、容器查询是组件级」，说明对响应式的理解不止停留在罗列技术。
+
+### 无断点响应式是什么思想？
+
+`repeat(auto-fit, minmax(240px, 1fr))`、`flex-wrap`、`clamp()` 这类技术让布局随可用空间连续变化，不声明任何断点。理念是「设计弹性本身，而不是设计几档固定的样式」，断点只留给不得不改变结构的地方（如导航折叠、单双栏切换）。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）

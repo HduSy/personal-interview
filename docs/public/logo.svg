@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>FE Interview</title>
+  <desc>渐变对话气泡中包含代码括号</desc>
+  <defs>
+    <linearGradient id="g" x1="8" y1="14" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0095FF"/>
+      <stop offset="1" stop-color="#42D392"/>
+    </linearGradient>
+  </defs>
+  <path d="M16 14 h32 a8 8 0 0 1 8 8 v20 a8 8 0 0 1 -8 8 H33 l-11 8 v-8 h-6 a8 8 0 0 1 -8 -8 V22 a8 8 0 0 1 8 -8 Z" fill="url(#g)"/>
+  <polyline points="25,25 19,32 25,39" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="39,25 45,32 39,39" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

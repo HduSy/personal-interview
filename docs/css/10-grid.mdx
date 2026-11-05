@@ -109,6 +109,8 @@ footer { grid-area: footer; background: #bfdbfe; }`}
 
 两者都按 `minmax` 的最小值算出能放几列，区别在空轨道参不参与平分。`auto-fill` 让空轨道照常占一份空间，项目宽度不变；`auto-fit` 让空轨道不占空间，项目被拉伸铺满。两者只在项目数少于轨道数时有差异。
 
+名称含义：`fill` 指用轨道填满容器，`fit` 指让轨道适配内容。助记法（非标准术语）：**fill 填轨道，fit 填内容**。
+
 <Sandpack
   template="static"
   height={180}

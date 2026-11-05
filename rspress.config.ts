@@ -69,7 +69,10 @@ export default defineConfig({
   },
   title: 'FE Interview',
   description: '个人前端面试学习记录',
+  icon: '/favicon.svg',
   themeConfig: {
+    logo: '/logo.svg',
+    logoText: 'FE Interview',
     nav: [
       { text: 'HTML', link: '/html/' },
       { text: 'CSS', link: '/css/' },

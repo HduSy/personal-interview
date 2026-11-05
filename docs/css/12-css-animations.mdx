@@ -1,0 +1,121 @@
+import { Sandpack } from '../../components';
+
+# 12. CSS3 动画有哪些？
+
+## 高频问答
+
+### 1. 两类核心：transition 与 animation
+
+CSS3 提供两种动画机制：
+
+- **transition（过渡）**：两个状态之间的平滑变化，**需要触发**（`:hover`、class 切换、媒体查询命中）。
+- **animation（关键帧动画）**：通过 `@keyframes` 定义任意多个关键帧，**不需要触发**，可自动播放、循环、正反向。
+
+`transform` 本身不是动画，它只描述几何变换；只有配合 transition 或 animation 才产生运动。三者常一起使用。
+
+### 2. transition
+
+```css
+.box {
+  transition: transform .3s ease .1s;
+  /* 属性名 时长 时间函数 延迟 */
+}
+```
+
+可分别写 `transition-property`、`transition-duration`、`transition-timing-function`、`transition-delay`。
+
+过渡只能定义**起点和终点**两个状态，且必须有状态变化才会执行。
+
+### 3. animation 与 @keyframes
+
+```css
+@keyframes bounce {
+  0%   { transform: translateY(0); }
+  50%  { transform: translateY(-20px); }
+  100% { transform: translateY(0); }
+}
+
+.box {
+  animation: bounce 1s ease-in-out infinite;
+  /* 名称 时长 时间函数 迭代次数 */
+}
+```
+
+完整可配的属性：
+
+| 属性 | 作用 |
+| --- | --- |
+| `animation-name` | 使用的 `@keyframes` 名称 |
+| `animation-duration` | 单次时长 |
+| `animation-timing-function` | 时间函数 |
+| `animation-delay` | 延迟，可为负值（从中间开始） |
+| `animation-iteration-count` | 次数，`infinite` 为无限 |
+| `animation-direction` | `normal` / `reverse` / `alternate` / `alternate-reverse` |
+| `animation-fill-mode` | 动画外的状态：`none` / `forwards` / `backwards` / `both` |
+| `animation-play-state` | `running` / `paused` |
+
+### 4. 时间函数
+
+`linear`、`ease`、`ease-in`、`ease-out`、`ease-in-out`、`cubic-bezier(x1, y1, x2, y2)`、`steps(n, 跳变位置)`。
+
+`steps()` 用于逐帧效果，比如打字机、雪碧图行走动画。
+
+### 5. 动画事件
+
+| 事件 | 触发时机 |
+| --- | --- |
+| `transitionend` | 过渡结束 |
+| `animationstart` | 动画开始 |
+| `animationiteration` | 每次循环结束、下一次开始前 |
+| `animationend` | 动画整体结束 |
+
+用它们做动画链式衔接、结束后清理 DOM。
+
+### 6. 演示
+
+左边是 hover 触发的 transition，右边是无触发、无限循环的 animation：
+
+<Sandpack
+  template="static"
+  height={220}
+  html={`<div class="row">
+  <div class="box transition-box">transition</div>
+  <div class="box animation-box">animation</div>
+</div>`}
+  css={`body { margin: 0; font-family: system-ui, sans-serif; font-size: 12px; }
+.row { height: 190px; display: flex; align-items: center; justify-content: center; gap: 40px; background: #f8fafc; }
+.box { width: 100px; height: 60px; display: flex; align-items: center; justify-content: center; color: #fff; border-radius: 8px; background: #60a5fa; }
+.transition-box { transition: transform .3s ease, background .3s ease; }
+.transition-box:hover { transform: translateY(-10px); background: #2563eb; }
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-20px); }
+}
+.animation-box { background: #a78bfa; animation: bounce 1.2s ease-in-out infinite; }`}
+/>
+
+### 7. 高频追问
+
+**transition 和 animation 怎么选？** 有明确触发条件、只需两态变化用 transition；需要自动播放、多关键帧、循环用 animation。
+
+**哪些属性做动画不卡？** `transform` 和 `opacity` 只触发合成，不引发重排重绘，性能最好。改 `width`、`height`、`top`、`left` 会触发重排，动画卡顿的常见原因。
+
+**如何尊重用户的减少动效设置？** 用 `@media (prefers-reduced-motion: reduce)` 关闭或弱化动画。
+
+## 加深理解
+
+### 为什么 `transform` 比改 `top` 流畅？
+
+改 `top` 会触发布局计算与重绘，整个流程在渲染主线程；`transform` 可交给合成线程处理，不阻塞主线程，动画能保持 60fps。
+
+### `animation-fill-mode: forwards` 解决什么问题？
+
+动画结束后元素会回到未应用动画的初始样式。`forwards` 让元素保留最后一帧的样式，避免动画播完后「弹回去」。
+
+### `transition` 为什么在 `display: none → block` 时无效？
+
+元素从 `display: none` 恢复时没有可过渡的初始渲染状态，浏览器不会生成过渡。现代可用 `transition-behavior: allow-discrete` 配合 `@starting-style` 处理。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）
