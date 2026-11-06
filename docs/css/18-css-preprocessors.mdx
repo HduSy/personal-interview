@@ -1,0 +1,106 @@
+import { Sandpack } from '../../components';
+
+# 18. 说说你对 CSS 预处理语言的理解？有哪些区别？
+
+## 高频问答
+
+### 1. 是什么：编译期扩展 CSS 的 DSL
+
+CSS 预处理器是在 CSS 语法之上扩展出**变量、嵌套、混入、函数、模块化**能力的领域语言，由编译器（Dart Sass、lessc 等）编译成原生 CSS。它解决原生 CSS 的历史短板：**没有变量、没有逻辑、复用靠复制粘贴、样式全局作用域**，大型项目难以维护。
+
+本质一句话：**所有增强都发生在编译期，产物是普通 CSS，浏览器毫无感知**——这决定了它与 CSS 自定义属性（运行时能力）的根本区别。
+
+### 2. 核心能力四件套
+
+```scss
+// _variables.scss —— 模块化拆分出的变量文件
+$primary: #2563eb;
+$radius: 8px;
+
+// card.scss
+@use "variables" as v;
+
+@mixin card-border($color) {
+  border: 1px solid $color;
+  border-radius: $radius;
+}
+
+.card {
+  @include card-border(v.$primary);   // 混入：复用样式块，可传参
+
+  .title { font-weight: 700; }        // 嵌套 → .card .title
+  &:hover { border-color: #1d4ed8; }  // & 指父选择器 → .card:hover
+
+  @each $size in (12, 14, 16) {       // 控制指令批量生成
+    &.fs-#{$size} { font-size: #{$size}px; }
+  }
+}
+```
+
+- **变量**：`$primary` 一处定义处处引用，换主题色改一个文件；
+- **嵌套**：选择器按 DOM 层级书写，`&` 引用父选择器，消除重复前缀；
+- **混入 / 继承**：`@mixin` + `@include` 带参复用样式块，`@extend` 共享声明组；
+- **模块化**：`@use` 拆分文件、按命名空间引入，配 `@if / @for / @each` 和内置函数（`darken()`、map 操作）写编译期逻辑。
+
+### 3. 三大预处理器的区别
+
+| 维度 | Sass / SCSS | Less | Stylus |
+| --- | --- | --- | --- |
+| 语法 | `.scss` 完全兼容 CSS；`.sass` 缩进式 | 完全兼容 CSS | 可省大括号、冒号、分号 |
+| 变量符号 | `$` | `@` | 直接用名字 |
+| 实现 | Dart Sass（官方主推） | JavaScript | JavaScript |
+| 代表使用者 | Bootstrap 5、多数现代组件库 | Bootstrap 3/4 时代、Ant Design 4 | 已萎缩 |
+| 现状 | **事实主流** | 存量项目维护 | 新项目基本不用 |
+
+结论：新项目选 Sass（用 SCSS 语法）——官方持续维护、生态最大；Less 的历史地位来自 Bootstrap 时代，Ant Design 5 起也迁移到了 CSS-in-JS。
+
+### 4. 与 PostCSS、原生新特性的关系
+
+**PostCSS 是后处理器**：对已经生成的 CSS 做 AST 级转换——autoprefixer 补前缀、cssnano 压缩、stylelint 检查。它不管你怎么写，只管产物怎么优化，和预处理器是上下游关系而非竞争。
+
+**原生 CSS 正在吸收预处理器的能力**：嵌套语法 2023 年起主流浏览器全部落地（Chrome 112 / Firefox 117 / Safari 16.5），自定义属性承担变量，`@layer` 管理级联优先级。简单项目已经可以不引预处理器。hover 这张卡片，样式全部写在 `.card { }` 的嵌套里：
+
+<Sandpack
+  template="static"
+  height={200}
+  html={`<div class="card">
+  <p class="title">原生 CSS 嵌套</p>
+  <p class="desc">这些样式全部嵌套在 .card 的花括号里，没有预处理器参与</p>
+</div>`}
+  css={`body { font-family: system-ui, sans-serif; padding: 24px; }
+.card {
+  padding: 16px; border: 1px solid #cbd5e1; border-radius: 8px;
+  color: #334155; transition: border-color 0.2s;
+
+  & .title { font-weight: 700; margin: 0 0 8px; color: #1e293b; }
+  & .desc { margin: 0; font-size: 13px; }
+
+  &:hover {
+    border-color: #2563eb;
+    box-shadow: 0 1px 6px rgba(37, 99, 235, 0.3);
+  }
+  &:hover .title { color: #2563eb; }
+}`}
+/>
+
+### 5. 高频追问
+
+**Sass 变量和 CSS 自定义属性的区别？** 编译期 vs 运行时：`$var` 编译时被替换成具体值，产物里不存在了；`--var` 运行时求值、随级联继承、能在媒体查询里按断点覆盖、能被 JS `setProperty` 读写。主题切换、暗色模式必须靠 `--var`——两者互补，不是替代关系。
+
+**`@mixin` 和 `@extend` 的区别？** mixin 把声明**复制**进每个调用点，可传参、产物彼此独立，代价是产物有重复；extend 把调用者**合并**进原选择器组，产物省字节，代价是选择器耦合、级联顺序难预测。实践默认 mixin。
+
+**现在还需要预处理器吗？** 原生嵌套、自定义属性、`@layer` 已覆盖小项目需求；大型项目仍依赖 Sass 的 `@use` 模块系统、函数与 mixin。准确说法是「需要的部分在变少」，而不是「已死」。
+
+## 加深理解
+
+### Sass 的 `@import` 为什么被 `@use` 取代
+
+`@import` 把被导入文件的所有变量、mixin 倒进全局命名空间，多文件间互相污染、重复导入就重复编译，还与原生 CSS `@import` 的语义混淆。官方已将其废弃：`@use` 按模块引入、成员通过命名空间访问（`v.$primary`），每个模块只编译一次，配 `@forward` 做转发。新项目一律 `@use`。
+
+### 预处理变量为什么做不了主题切换
+
+`$primary: #2563eb` 在编译期就被替换成具体的颜色值，产物 CSS 里变量的概念已不存在，运行时没有任何东西可以改。CSS 自定义属性真实存在于每个元素的样式上，改根节点一个类（`.dark { --primary: ... }`）全站即时重算——这是暗色主题方案全部基于 `--var` 的原因。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）

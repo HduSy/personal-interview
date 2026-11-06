@@ -1,0 +1,283 @@
+import { Sandpack } from '../../components';
+
+# 17. 如何使用 CSS 完成视差滚动效果？
+
+## 高频问答
+
+### 1. 原理：让某一层「跟不上」滚动
+
+视差滚动 = 不同层以不同速度滚动，近快远慢形成深度感。纯 CSS 让某层与滚动速度产生差异，四条路：
+
+- **`background-attachment: fixed`**——背景钉在视口，前景滚过它；
+- **`perspective` + `translateZ`**——3D 投影天然把远层速度按比例放慢，可做多层任意变速；
+- **`position: sticky`**——层在滚动中暂时钉住，与滚过的内容形成速度差；
+- **`animation-timeline: scroll()`**——用滚动进度直接驱动关键帧动画。
+
+### 2. `background-attachment: fixed`：一行搞定，代价最大
+
+```css
+.hero {
+  height: 100vh;
+  background-image: url(bg.jpg);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;  /* 背景固定于视口，不随内容滚动 */
+}
+```
+
+背景不动、内容滚过，速度差即视差。两个代价：
+
+1. **iOS Safari 一直不支持**：`fixed` 被当作 `scroll` 渲染，移动端必须有兜底（换方案，或用 `position: fixed` 的元素垫底模拟）；
+2. **性能差**：滚动过程中背景相对视口重算，触发大面积重绘，无法只靠合成器。
+
+下面对比 `fixed` 与默认的 `scroll`，在预览区里滚动看差异：
+
+<Sandpack
+  template="static"
+  height={300}
+  html={`<div class="wrap">
+  <p class="tip">在预览区里上下滚动，对比两块背景</p>
+
+  <h3>background-attachment: fixed —— 背景钉在视口</h3>
+  <div class="block">
+    <div class="inner fixed"><span class="tag">内容滚过，背景不动</span></div>
+    <div class="inner fixed"><span class="tag">继续滚</span></div>
+    <div class="inner fixed"><span class="tag">还在原地</span></div>
+  </div>
+
+  <h3>默认 scroll —— 背景跟着内容走</h3>
+  <div class="block">
+    <div class="inner"><span class="tag">背景随内容一起滚动</span></div>
+    <div class="inner"><span class="tag">没有速度差</span></div>
+    <div class="inner"><span class="tag">也就没有视差</span></div>
+  </div>
+</div>`}
+  css={`body { margin: 0; font-family: system-ui, sans-serif; }
+.wrap { padding: 16px; }
+.tip { font-size: 12px; color: #666; }
+h3 { font-size: 13px; color: #334155; }
+.block { margin-bottom: 24px; }
+.inner {
+  height: 180px; margin-bottom: 12px; padding: 12px;
+  border: 1px solid #cbd5e1; border-radius: 6px;
+  background-image: repeating-conic-gradient(#1e293b 0% 25%, #fff 0% 50%);
+  background-size: 48px 48px;
+}
+.tag {
+  background: #fff; padding: 2px 8px; border-radius: 4px;
+  font-size: 13px; color: #1e293b; border: 1px solid #cbd5e1;
+}
+.fixed { background-attachment: fixed; }`}
+/>
+
+### 3. `perspective` + `translateZ`：多层变速的标准做法
+
+```css
+.parallax {
+  height: 100vh;
+  overflow-y: auto;      /* 自己就是滚动容器 */
+  perspective: 1px;      /* 极近的透视距离放大 z 的效果 */
+}
+.layer    { position: absolute; inset: 0; }
+.layer--back  { transform: translateZ(-1px) scale(2); }  /* 远层：半速 */
+.layer--base  { transform: translateZ(0); }               /* 前景：原速 */
+```
+
+机制：`perspective: 1px` 下，`z = -1px` 的层按 **perspective / (perspective − z) = 1/2** 投影——滚动位移和视觉尺寸都缩为一半，`scale(2)` 补回尺寸，剩下的效果就是**滚动速度减半**。想要 1/3 速度就 `translateZ(-2px) scale(3)`。现代浏览器（含 iOS Safari）都支持，全程 GPU 合成。
+
+```css
+/* 层不是滚动容器的直接子元素时，中间层要加 */
+.scene { transform-style: preserve-3d; }
+```
+
+在预览区里滚动，观察棋盘背景与卡片的速度差：
+
+<Sandpack
+  template="static"
+  height={300}
+  html={`<div class="parallax">
+  <div class="scene">
+    <div class="layer back"></div>
+    <div class="layer front">
+      <div class="card">前景卡片：全速滚动</div>
+      <div class="card">棋盘背景：半速滚动</div>
+      <div class="card">速度差形成深度感</div>
+    </div>
+  </div>
+</div>`}
+  css={`body { margin: 0; font-family: system-ui, sans-serif; }
+.parallax {
+  height: 240px; overflow-y: auto;
+  perspective: 1px; border: 1px solid #cbd5e1;
+}
+.scene { position: relative; height: 760px; transform-style: preserve-3d; }
+.layer { position: absolute; inset: 0; }
+.back {
+  transform: translateZ(-1px) scale(2);
+  background: repeating-conic-gradient(#1e293b 0% 25%, #fff 0% 50%);
+  background-size: 48px 48px;
+}
+.front { transform: translateZ(0); }
+.card {
+  height: 200px; margin: 28px 16px; display: flex;
+  align-items: center; justify-content: center;
+  background: #fff; border: 1px solid #cbd5e1; border-radius: 8px;
+  box-shadow: 0 1px 6px rgba(15, 23, 42, 0.3);
+}`}
+/>
+
+### 4. `position: sticky`：零成本的单级视差
+
+```css
+.bg {
+  position: sticky;
+  top: 0;        /* 滚到顶部后钉住 */
+  z-index: 0;
+}
+.content { position: relative; z-index: 1; }  /* 内容从钉住的背景上滚过 */
+```
+
+机制：sticky 层钉住不动，内容全速滚过——速度来自「一个停住、一个在滚」。全兼容、无重绘负担。局限：只能做出「0 速 vs 全速」，做不出 0.5× 这样的中间速度。
+
+<Sandpack
+  template="static"
+  height={280}
+  html={`<div class="wrap">
+  <p class="tip">在预览区里上下滚动</p>
+  <div class="scene">
+    <div class="bg">背景层：sticky 钉在顶部</div>
+    <div class="content">
+      <div class="card">卡片 1 滚过背景</div>
+      <div class="card">卡片 2 滚过背景</div>
+      <div class="card">卡片 3 滚过背景</div>
+      <div class="card">卡片 4 滚过背景</div>
+    </div>
+  </div>
+</div>`}
+  css={`body { margin: 0; font-family: system-ui, sans-serif; }
+.wrap { padding: 16px; }
+.tip { font-size: 12px; color: #666; }
+.scene { position: relative; }
+.bg {
+  position: sticky; top: 0; height: 120px; z-index: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(90deg, #fbbf24, #f472b6); color: #fff;
+}
+.content { position: relative; z-index: 1; }
+.card {
+  height: 140px; margin-bottom: 16px; display: flex;
+  align-items: center; justify-content: center;
+  background: #fff; border: 1px solid #cbd5e1; border-radius: 8px;
+}`}
+/>
+
+### 5. 新标准与选型：`animation-timeline: scroll()`
+
+```css
+@keyframes parallax {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-30%); }
+}
+.bg {
+  animation: parallax linear both;
+  animation-timeline: scroll(nearest block);  /* 滚动进度替代时间轴 */
+}
+```
+
+滚动进度 0% → 100% 映射到关键帧，速度、方向、位移量都任意可控；不需要 `animation-duration`，进度完全由滚动位置决定。支持：Chrome / Edge 115+、Safari 26+，Firefox 尚未支持（全球支持率约 84%），用 `@supports (animation-timeline: scroll())` 兜底。
+
+兜底必须把 `animation` 声明一起包进 `@supports`：直接写在外面的话，未支持的浏览器会丢掉 `animation-timeline` 这一行，只剩 `animation` 按时间轴执行，`both` 填充让背景瞬间跳到终态位置。完整结构：
+
+```css
+.bg {
+  position: absolute;
+  inset: 0;
+}
+
+@keyframes parallax {
+  from { transform: translateY(0); }
+  to   { transform: translateY(40%); }  /* 正值向下回拉：背景比内容慢 */
+}
+
+@supports (animation-timeline: scroll()) {
+  .bg {
+    animation: parallax linear both;
+    animation-timeline: scroll(nearest block);
+  }
+}
+```
+
+在预览区里滚动，背景以低于内容的速度平移；未支持的浏览器里 `@supports` 不命中，背景保持静止（Firefox 下即此效果）：
+
+<Sandpack
+  template="static"
+  height={300}
+  html={`<div class="scroller">
+  <div class="track">
+    <div class="bg"></div>
+    <div class="front">
+      <div class="card">前景卡片：全速滚动</div>
+      <div class="card">棋盘背景：translateY 回拉</div>
+      <div class="card">背景速度约为内容的 0.4 倍</div>
+    </div>
+  </div>
+</div>`}
+  css={`body { margin: 0; font-family: system-ui, sans-serif; }
+.scroller { height: 240px; overflow-y: auto; border: 1px solid #cbd5e1; }
+.track { position: relative; height: 760px; }
+.bg {
+  position: absolute; inset: 0;
+  background: repeating-conic-gradient(#1e293b 0% 25%, #fff 0% 50%);
+  background-size: 48px 48px;
+}
+.front { position: absolute; inset: 0; }
+.card {
+  height: 200px; margin: 28px 16px; display: flex;
+  align-items: center; justify-content: center;
+  background: #fff; border: 1px solid #cbd5e1; border-radius: 8px;
+  box-shadow: 0 1px 6px rgba(15, 23, 42, 0.3);
+}
+
+@keyframes parallax {
+  from { transform: translateY(0); }
+  to   { transform: translateY(40%); }
+}
+
+@supports (animation-timeline: scroll()) {
+  .bg {
+    animation: parallax linear both;
+    animation-timeline: scroll(nearest block);
+  }
+}`}
+/>
+
+| 方案 | 层数 | 速度 | 兼容 | 性能 |
+| --- | --- | --- | --- | --- |
+| `background-attachment: fixed` | 背景 1 层 | 固定 0 速 | iOS 失效 | 差（整屏重绘） |
+| `perspective` + `translateZ` | 多层 | 任意比例 | 现代浏览器 | 好 |
+| `position: sticky` | 背景 1 层 | 固定 0 速 | 全兼容 | 好 |
+| `animation-timeline: scroll()` | 多层 | 任意比例 | Firefox 未支持 | 好 |
+
+**高频追问：JS 方案怎么做、差在哪？** 监听 `scroll`，按 `scrollY × 系数` 设置 `transform: translateY()`。JS 的短板是滚动事件跑在主线程，处理不及时会掉帧；CSS 方案（`translateZ`、`animation-timeline`）由合成器直接完成，主线程阻塞也不影响滚动。**动画只动 `transform`**——动 `top`、`margin` 会触发重排，滚动场景下必掉帧。
+
+## 加深理解
+
+### `perspective` 属性本身是什么？
+
+CSS 变换体系的属性，写在**父元素**上，为**直接子元素**的 3D 变换提供透视投影：值是「观察者到 z=0 平面」的距离。p 越小深度感越夸张；`none` 表示无透视，尺寸不随 z 变化。配套：`perspective-origin` 定灭点（默认容器中心），`transform-style: preserve-3d` 把 3D 空间延续给孙元素。两个边界：作用范围只有直接子元素，孙元素默认被拍平；值非 `none` 时会创建层叠上下文，并成为绝对 / 固定定位后代的包含块。另有函数形态 `transform: perspective(500px)`——写在自己身上只影响自己；多个元素要共享同一灭点时只能用属性版。
+
+### 半速公式怎么来的？
+
+`perspective: p` 下，深度为 `z` 的层投影缩放比是 **p / (p − z)**。`p = 1px`、`z = -1px` 时：投影缩放 = 1/2，层随内容滚动的位移同样按 1/2 投影，于是滚动速度减半；层高也被缩成一半，所以 `scale((p − z) / p)` 即 `scale(2)` 补回覆盖范围。p 取 1px 是为了让 1px 的 z 位移就产生 50% 的速度差——p 越大，同样的 z 需要更大的 scale 补偿。
+
+### 中间层一加 `overflow: hidden` 视差就失效，为什么？
+
+`transform-style: preserve-3d` 的实际生效值会被 `overflow` 非 `visible`、`filter` 等属性强制为 `flat`——该元素的 3D 上下文被拍平，后代层的 `translateZ` 不再被透视投影，视差随之消失。排查时优先检查滚动容器到视差层之间有没有这些属性；需要剪裁时，把 `overflow: hidden` 设在叶子层内部而不是 preserve-3d 的中间层上。
+
+### iOS Safari 的 `background-attachment: fixed` 为什么失效？
+
+WebKit 在移动端一直没有实现固定背景的滚动行为，遇到 `fixed` 按 `scroll` 渲染，属于长期存在的已知差异而不是新退化。移动端兜底做法：改用 `position: fixed` + `z-index: -1` 的元素铺底模拟固定背景，或直接换 `perspective` / `sticky` 方案。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）

@@ -1,0 +1,112 @@
+import { Sandpack } from '../../components';
+
+# 16. 如何实现单行／多行文本溢出的省略样式？
+
+## 高频问答
+
+### 1. 单行省略：三件套各司其职
+
+```css
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+```
+
+三个属性缺一不可，各自职责：
+
+- **`white-space: nowrap`**：禁止换行——不换行，文本才可能横向溢出；
+- **`overflow: hidden`**：裁掉溢出部分——裁剪由它产生；
+- **`text-overflow: ellipsis`**：把裁剪边缘渲染成省略号——只决定溢出内容的呈现方式，自身不产生裁剪。
+
+下面沙箱对比三组，每组只差一个属性：① 三件套齐全显示省略号；② 缺 `nowrap`，文本自动换行，没有溢出就没有省略号；③ 缺 `overflow: hidden`，文字露出容器边界，同样没有省略号。
+
+<Sandpack
+  template="static"
+  height={280}
+  html={`<div class="demo">
+  <p class="label">① 三件套齐全 —— 显示省略号</p>
+  <p class="box full">这是一段很长很长很长很长很长很长的标题文字，超出的部分应显示为省略号</p>
+
+  <p class="label">② 缺 white-space: nowrap —— 自动换行，无省略号</p>
+  <p class="box no-nowrap">这是一段很长很长很长很长很长很长的标题文字，超出的部分应显示为省略号</p>
+
+  <p class="label">③ 缺 overflow: hidden —— 文字露出容器，无省略号</p>
+  <p class="box no-hidden">这是一段很长很长很长很长很长很长的标题文字，超出的部分应显示为省略号</p>
+</div>`}
+  css={`body { font-family: system-ui, sans-serif; padding: 16px; margin: 0; }
+.demo { width: 320px; }
+.label { font-size: 12px; color: #666; margin: 12px 0 4px; }
+.box { border: 1px solid #cbd5e1; background: #eff6ff; padding: 8px; font-size: 14px; }
+.full { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.no-nowrap { overflow: hidden; text-overflow: ellipsis; }
+.no-hidden { text-overflow: ellipsis; white-space: nowrap; }`}
+/>
+
+### 2. 多行省略：`-webkit-line-clamp` 四件套
+
+```css
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+```
+
+- **`display: -webkit-box` + `-webkit-box-orient: vertical`**：把元素声明为 WebKit 旧伸缩盒并纵向排列，是 `-webkit-line-clamp` 的生效前提；
+- **`-webkit-line-clamp: 2`**：最多渲染 2 行，改行数就是改这个数字；
+- **`overflow: hidden`**：裁掉第 2 行之后的内容。
+
+属性虽带 `-webkit-` 前缀，但**所有主流浏览器都实现了它**（Firefox 68 起提供兼容实现），是事实标准；无前缀的标准属性 `line-clamp` 目前支持率极低，生产环境不用。
+
+<Sandpack
+  template="static"
+  height={240}
+  html={`<div class="demo">
+  <p class="label">① 内容超过两行 —— 第二行末尾出现省略号</p>
+  <p class="box clamp">这是一段较长的简介文字，用来演示多行文本截断。当内容超过限定的行数时，超出部分被裁掉，最后一行末尾显示省略号，容器高度停留在两行。</p>
+
+  <p class="label">② 内容未超过两行 —— 没有溢出，不出现省略号</p>
+  <p class="box clamp">这段文字没有超过两行，没有产生溢出。</p>
+</div>`}
+  css={`body { font-family: system-ui, sans-serif; padding: 16px; margin: 0; }
+.demo { width: 320px; }
+.label { font-size: 12px; color: #666; margin: 12px 0 4px; }
+.box { border: 1px solid #cbd5e1; background: #eff6ff; padding: 8px; font-size: 14px; line-height: 1.6; }
+.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }`}
+/>
+
+### 3. 常见失效场景
+
+失效的根源都是「没有产生溢出」或「元素不满足前提」：
+
+1. **宽度不受约束**：`display: inline` 或宽度自适应内容的元素不会溢出。单行省略要求元素是块级、`inline-block` 或 flex / grid 项目，且宽度被容器限制。
+2. **flex / grid 子项收缩失败**：项目 `min-width` 默认为 `auto`，长内容把宽度撑住，加 `min-width: 0` 才能收缩出溢出（两栏布局题里详细分析过）。
+3. **多行正好占满 N 行**：没有溢出就不显示省略号——预期行为，不是 bug。
+4. **clamp 元素不能再做 flex / grid 容器**：`display` 只能取一个值，设了 `-webkit-box` 就接管了子元素排布；卡片里既要排图标又要截标题时，把 clamp 设在内部纯文本元素上。
+
+### 4. 高频追问
+
+**为什么不用 JS 截字符串？** 按字符数截断假设字符等宽，中英文混排、不同字体、窗口缩放下都会截多或截少；CSS 方案跟随容器实际宽度，响应式下自动正确。JS 只在需要交互时用——「展开 / 收起」或判断是否溢出（比较 `scrollHeight` 与 `clientHeight`）。
+
+**省略号能换成自定义字符或渐隐吗？** `text-overflow` 的字符串值没有可用的浏览器实现；「渐隐」用绝对定位伪元素叠加 `linear-gradient` 遮罩盖在文本右缘实现。
+
+## 加深理解
+
+### 为什么 `text-overflow` 单独写没有任何效果？
+
+它是纯绘制属性：不改变布局、不裁剪内容、不产生滚动，只定义「已被裁剪的内联溢出在边缘处怎么画」。`overflow: visible`（默认值）时内容不裁剪，它不参与渲染；裁了才在裁剪线处按值画硬切（`clip`）或省略号。三件套里真正制造省略号前提的是 `nowrap` + `hidden`，`ellipsis` 只负责收尾。
+
+### `-webkit-line-clamp` 为什么必须配 `-webkit-box`？
+
+它是 WebKit 旧伸缩盒的私有属性，因为使用面太广，被 Chrome、Safari、Firefox 作为兼容别名统一实现，成为事实标准——前缀是历史遗留，不代表「只支持 WebKit」。标准化版本是无前缀的 `line-clamp` 简写（`max-lines` 与 `block-ellipsis` 的合写），不依赖旧伸缩盒，但目前支持率极低、仍在推动浏览器互操作，上生产前先查支持表。
+
+### 多行省略出现「半截字」是为什么？
+
+clamp 只限制行数，不决定高度。容器高度被外层限制得比 N 行矮时，第 N 行会被 `overflow: hidden` 从中间裁断，露出半截文字。需要省略号精确出现时，让高度等于 `行数 × line-height`，或不设高度由内容自然撑开。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）
