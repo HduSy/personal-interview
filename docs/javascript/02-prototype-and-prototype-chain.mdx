@@ -1,0 +1,125 @@
+import { Sandpack } from '../../components';
+
+# 02. 谈谈你对原型与原型链的理解
+
+## 高频问答
+
+### 1. 原型是什么：属性查找的下一站
+
+每个对象内部都有一个**原型**（规范中是 `[[Prototype]]` 内部槽），指向另一个对象或 `null`。访问属性时，对象自身找不到就去它的原型上找——原型就是**为其他对象提供共享属性的对象**：方法定义在构造函数的 `prototype` 上，一万个实例也只有一份方法，而不是每份都拷贝。
+
+两个必区分的概念：
+
+- **`prototype`**：**只有函数才有**的属性，指向「以它 new 出来的实例」的原型；
+- **`__proto__` / `Object.getPrototypeOf()`**：**每个对象都有**，指向自己的原型。`__proto__` 是历史访问器，标准读写用 `Object.getPrototypeOf / setPrototypeOf`。
+
+核心关系一句背下来：**`实例.__proto__ === 构造函数.prototype`，`Fn.prototype.constructor === Fn`**。
+
+### 2. 原型链：查找规则与链的终点
+
+属性查找沿原型一层层向上：**自身 → 原型 → 原型的原型 → …… → `Object.prototype` → `null`**，到 `null` 终止。这条路径就是原型链。
+
+两条基本链要能当场画出来：
+
+- 普通实例：`cat → Animal.prototype → Object.prototype → null`；
+- 任何函数（函数也是对象）：`fn → Function.prototype → Object.prototype → null`，其中 `Function.__proto__ === Function.prototype` 是自指特例。
+
+最关键的规则：**读取沿链，赋值不沿链**——`obj.x = 1` 永远写在 `obj` 自身，原型上有同名属性时形成**遮蔽（shadowing）**，原型本身不被修改（除非原型上定义的是 setter）。
+
+### 3. 哪些操作沿链、哪些只看自身
+
+| 操作 | 范围 |
+| --- | --- |
+| `obj.x` 读取、`'x' in obj`、`for...in` | 沿原型链（for...in 只列可枚举） |
+| `obj.x = 1` 赋值 | 只写自身，遮蔽同名继承属性 |
+| `Object.keys / values / entries` | 只看自身可枚举 |
+| `obj.hasOwnProperty('x')` | 只看自身（含不可枚举） |
+| `Object.getOwnPropertyNames` | 只看自身（含不可枚举） |
+
+`for...in` 会带出继承的可枚举属性，配 `hasOwnProperty` 过滤是标准搭配。
+
+### 4. 与 class、继承、instanceof 的关系
+
+**class 是基于原型的语法糖**。`extends` 建立两根链，这常被追问：
+
+```text
+子类.prototype.__proto__ → 父类.prototype   // 实例方法继承
+子类.__proto__     → 父类                  // 静态属性继承、super 的入口
+```
+
+**`instanceof` 就是原型链判断**：沿左边的原型链逐层找，看是否经过右边函数的 `prototype`。
+
+**ES5 组合寄生继承**（class 之前的标准答案）：借用构造函数 `Parent.call(this)` 继承实例属性 + `Object.create(Parent.prototype)` 作子类原型继承方法。不用 `Child.prototype = new Parent()` 的原因：父类的实例属性会混进子类原型被所有实例共享，且无法在实例化子类时给父类传参。
+
+### 5. 控制台验证 + 高频追问
+
+打开 Console 看输出——三角关系、沿链查找、赋值遮蔽、手写 instanceof 一次验证：
+
+<Sandpack
+  template="static"
+  showConsole
+  height={200}
+  html={`<p style="font-family: system-ui; padding: 12px; color: #666; font-size: 13px;">
+  打开下方 Console 查看验证输出
+</p>`}
+  js={`function Animal(name) { this.name = name; }
+Animal.prototype.eat = function () { return this.name + ' 在吃'; };
+
+const cat = new Animal('猫');
+
+// ① 三角关系
+console.log('cat.__proto__ === Animal.prototype :', cat.__proto__ === Animal.prototype);
+console.log('Animal.prototype.constructor === Animal :', Animal.prototype.constructor === Animal);
+
+// ② 沿链查找：eat 不在实例上
+console.log("cat.hasOwnProperty('eat') :", cat.hasOwnProperty('eat'));  // false
+console.log("'eat' in cat :", 'eat' in cat);                            // true
+console.log('cat.eat() :', cat.eat());
+
+// ③ 赋值不沿链：遮蔽原型，原型未动
+cat.eat = function () { return this.name + ' 挑食'; };
+console.log('cat.eat() :', cat.eat());
+console.log('原型上的 eat 还在 :', Animal.prototype.eat.call(cat));
+
+// ④ 链的顶端与函数的链
+console.log('Object.prototype.__proto__ === null :', Object.prototype.__proto__ === null);
+console.log('Animal 的原型是 Function.prototype :', Object.getPrototypeOf(Animal) === Function.prototype);
+
+// ⑤ 手写 instanceof：沿原型链逐层比对
+function myInstanceof(obj, Fn) {
+  let proto = Object.getPrototypeOf(obj);
+  while (proto) {
+    if (proto === Fn.prototype) return true;
+    proto = Object.getPrototypeOf(proto);
+  }
+  return false;
+}
+console.log('myInstanceof(cat, Animal) :', myInstanceof(cat, Animal));
+console.log('myInstanceof(cat, Object) :', myInstanceof(cat, Object));`}
+/>
+
+**new 做了什么？** ①创建新对象 ②把它的 `[[Prototype]]` 指向构造函数的 `prototype` ③以新对象为 `this` 执行构造函数 ④构造函数显式返回对象则用该对象，否则返回新对象。
+
+**`Object.create(null)` 的对象什么样？** 原型直接是 `null`，没有任何继承方法（`toString`、`hasOwnProperty` 都没有），是纯净字典：键名不怕撞上继承属性，序列化、遍历都干净。
+
+## 加深理解
+
+### `__proto__` 的规范地位
+
+`__proto__` 是浏览器自发实现后被 ES6 收编的兼容特性，定义在 `Object.prototype` 上，是个访问器属性——所以它只在对象能访问到 `Object.prototype` 时才存在，`Object.create(null)` 的对象上根本没有 `__proto__`。标准做法是 `Object.getPrototypeOf / setPrototypeOf`；且修改已存在对象的原型会让引擎的隐藏类优化失效，属极慢操作——原型应在创建时用 `class` / `Object.create` / 构造函数一次定好，不做运行时改写。
+
+### 整体替换 prototype 为什么丢 constructor
+
+`Fn.prototype = { ... }` 后，新对象上没有 `constructor`，沿链找到的是 `Object.prototype.constructor`（即 `Object`）。需要在新对象里手动补 `constructor: Fn`。顺带的认知：`constructor` 只是原型上一个可写的数据属性，并不能证明「谁创建了我」——它可能被覆盖或丢失，判断类型用 `instanceof` 或 `Object.prototype.toString.call()`。
+
+### Function 的自指怎么理解
+
+`Function.__proto__ === Function.prototype`：`Function` 自己也是函数、也是 `Function` 的实例，所以它的原型是 `Function.prototype`。这是语言自举的结果，不构成循环悖论——链的终点依然是 `null`（`Function.prototype.__proto__ === Object.prototype`）。同理 `Object.__proto__ === Function.prototype`：`Object` 这个构造函数本身也是 `Function` 的实例。
+
+### 沿深链查找慢吗
+
+几乎不慢。现代引擎按「形状」（hidden class）记录对象的属性布局，配合内联缓存，命中的属性访问接近一次指针解引用，与它在链上第几层关系不大。真正破坏性能的是运行时改原型和 `delete` 操作，不是链的深度——「方法放原型共享」与「继承层级别太深」之间没有性能矛盾，后者是可读性考量。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）

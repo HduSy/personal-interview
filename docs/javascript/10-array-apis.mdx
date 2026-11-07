@@ -1,0 +1,121 @@
+import { Sandpack } from '../../components';
+
+# 10. 数组常用 API 有哪些？怎么用？
+
+## 高频问答
+
+### 1. 按功能分组
+
+**创建与判定**
+
+```js
+Array.isArray(x)            // 判数组（跨 realm 准确，typeof 题讲过为什么不用 instanceof）
+Array.of(1, 2)              // [1, 2]——按参数建数组
+Array.from({ length: 3 }, (_, i) => i * 2)  // [0, 2, 4]：类数组/可迭代转数组 + map
+new Array(3)                // [空 × 3] 稀疏数组！new Array(3, 0) 才是 [3, 0]
+```
+
+**增删（改变原数组）**：`push / pop` 尾部进出、`shift / unshift` 头部进出、`splice(start, deleteCount, ...items)` 任意位置删与插、`fill(v)` 填充、`copyWithin` 区间复制。
+
+**查找与判定**：`includes(v)`（是否含，`SameValueZero`，能找 `NaN`）、`indexOf / lastIndexOf`（`===` 语义，找不到 NaN）、`find / findIndex / findLast`（谓词函数找第一个/最后一个满足项）、`some / every`（存在 / 全部满足）、`at(-1)`（负索引取尾部）。
+
+**转换（不碰原数组，返回新数组）**：`map` 映射、`filter` 过滤、`slice(start, end)` 切片、`concat` 拼接、`flat(n)` 拉平、`flatMap` 映射+拉平一层；ES2023 起的**不可变变更** `toSorted / toReversed / toSpliced / with(i, v)`（排序/反转/删插/替换都返回副本）。
+
+**归并与遍历**：`reduce((acc, cur, i, arr) => 新acc, 初始值)` 累积、`reduceRight` 反向、`forEach`（无返回值、不可 `break`）。
+
+**其他**：`sort` 排序、`join` 连接、`reverse` 反转、`keys / values / entries`（迭代器，配 `for...of`）。
+
+### 2. 最实用的分类：改不改原数组
+
+| 改变原数组（mutation） | 不改变（返回新值 / 新数组） |
+| --- | --- |
+| `push pop shift unshift splice` | `slice concat map filter flat flatMap` |
+| `sort reverse fill copyWithin` | `toSorted toReversed toSpliced with` |
+| | `find every some includes indexOf reduce join at` |
+
+ES2023 专门发明 `to*` 系列，就是为了解决 `sort / reverse / splice` 三个高频 mutation 在 React 等场景下的拷贝烦恼（ES 新特性题里列过年份）。
+
+### 3. 两个必考的坑
+
+**`sort` 默认按字符串比较**：元素先转字符串再比 UTF-16 码点——`[10, 9, 1].sort()` 得 `['1', '10', '9']` 即 `[1, 10, 9]`。数字必须传比较函数：
+
+```js
+arr.sort((a, b) => a - b);   // 升序；b - a 降序
+```
+
+**稀疏数组的空槽被跳过**：`new Array(3)` / `[,,]` 里的空槽（empty）不等于 `undefined`——`forEach / map / filter / every` 都**跳过空槽**，`for...of` 与 `Object.keys` 行为也不一致。想统一成真 `undefined` 用 `Array.from(arr)` 或 `arr.fill()` 处理。
+
+### 4. `reduce` 的四个惯用法
+
+```js
+// 求和（初始值 0 不能省，否则空数组返回 undefined 且首轮回调缺参）
+const sum = nums.reduce((a, b) => a + b, 0);
+
+// 分组（等价 ES2024 的 Object.groupBy）
+const byType = list.reduce((acc, item) => {
+  (acc[item.type] ??= []).push(item);
+  return acc;
+}, {});
+
+// 去重
+const uniq = arr.reduce((a, v) => (a.includes(v) ? a : [...a, v]), []);
+
+// 依次执行 Promise（串行）
+const run = fns.reduce((prev, fn) => prev.then(fn), Promise.resolve());
+```
+
+### 5. 控制台验证 + 高频追问
+
+打开 Console 看 sort 陷阱与 mutation / copy 对比：
+
+<Sandpack
+  template="static"
+  showConsole
+  height={200}
+  html={`<p style="font-family: system-ui; padding: 12px; color: #666; font-size: 13px;">
+  打开下方 Console 查看验证输出
+</p>`}
+  js={`console.log('① sort 默认按字符串：', [10, 9, 1].sort());
+console.log('① 传比较函数：', [10, 9, 1].sort((a, b) => a - b));
+
+const src = [3, 1, 2];
+console.log('② sort 改原数组：', src.sort(), 'src =', src);
+
+const src2 = [3, 1, 2];
+console.log('② toSorted 返回副本：', src2.toSorted(), 'src2 =', src2);
+
+console.log('③ at 负索引：', [1, 2, 3].at(-1));
+console.log('③ includes 能找 NaN：', [NaN].includes(NaN), '| indexOf 找不到：', [NaN].indexOf(NaN));
+
+console.log('④ 空槽被跳过：', [,,].forEach(() => console.log('    这行不会打印')), '遍历结束');
+
+console.log('⑤ reduce 分组：',
+  [{ t: 'a' }, { t: 'b' }, { t: 'a' }].reduce((acc, x) => {
+    (acc[x.t] ??= []).push(1);
+    return acc;
+  }, {}));`}
+/>
+
+**`map` 与 `forEach` 怎么选？** 要结果（新数组、链式）用 `map`；纯副作用（打日志、改外部）用 `forEach`；需要 `break` 提前退出用 `for...of` 或 `some / find`（返回真值即停）。
+
+**怎么拍平任意深度？** `flat(Infinity)`；手写版就是 `reduce + concat` 递归，白板题常考。
+
+**`Array.from` 与扩展运算符 `...` 的区别？** 都能转可迭代对象，但 `Array.from` 还能转**类数组**（有 length 的普通对象，如 `arguments`）并带 map 回调；`[...obj]` 只吃可迭代（类数组没有迭代器会报错）。
+
+## 加深理解
+
+### 为什么 map 的回调跳过空槽而 for 循环不跳
+
+规范把数组方法分成「通用的」和「处理空槽的」：`map / filter / forEach / every` 走 `HasProperty` 检查，索引不存在的槽位直接越过；`for` 循环按下标访问得到 `undefined`。所以「数组的 length 个格子里有几个真空着」只有这类方法能感知——平时看不出差别，一旦 `delete arr[1]`（产生空槽，不推荐）行为就开始分叉。补齐手段：`[...arr]`、`Array.from(arr)`、`arr.fill()` 三者都会把空槽变成真实的 `undefined`（前两者走数组迭代器逐索引取值，缺失即取到 undefined）。
+
+### sort 现在还是不稳定排序吗
+
+规范从 ES2019 起**要求 sort 稳定**（相等元素保持原相对顺序），主流引擎早已遵守。老的「V8 对长数组用快排不稳定」的说法已过时——面试答「现在稳定，ES2019 规定」即可。
+
+### includes 与 indexOf 的相等语义差异
+
+`indexOf` 用严格相等（`NaN` 找不到），`includes` 用 `SameValueZero`（`NaN` 找得到、`+0/-0` 视为相等）——相等比较题里讲过三种相等语义。这也是 `includes` 比 `indexOf !== -1` 除了可读性之外的实质差别。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）

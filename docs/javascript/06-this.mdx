@@ -1,0 +1,123 @@
+import { Sandpack } from '../../components';
+
+# 06. this 的指向如何确定？从 ECMAScript 规范怎么解读？
+
+## 高频问答
+
+### 1. this 是什么、由什么决定
+
+`this` 是**函数执行上下文里的一个绑定**，在上下文创建阶段确定、运行期只读。三条边界先立住：
+
+- **不是函数自身**的引用（要引用自身得 `const self = this`）；
+- **不是作用域链上的变量**（词法作用域题里对比过），`this` 不参与标识符查找，是独立的上下文绑定；
+- **由「调用方式」决定，不由定义位置决定**（箭头函数除外）——这是它行为上「像动态作用域」的原因。
+
+### 2. 四条绑定规则与优先级
+
+| 规则 | 触发方式 | this 指向 |
+| --- | --- | --- |
+| 默认绑定 | 独立调用 `fn()` | 严格模式 `undefined`，非严格 `globalThis` |
+| 隐式绑定 | 方法调用 `obj.fn()` | `obj`；链式 `obj1.obj2.fn()` 只看**最后一层** `obj2` |
+| 显式绑定 | `fn.call(x)` / `apply` / `bind` | 指定的对象；`bind` 是**硬绑定**，之后的 call 改不动 |
+| new 绑定 | `new Fn()` | 新创建的对象（能穿透 bind 的 this） |
+
+**优先级：new > 显式（bind）> 隐式 > 默认**。**箭头函数不进这套规则**：它没有自己的 `this`，沿词法作用域链取定义处外层的 `this`，且 `call / bind` 对它无效。
+
+### 3. 隐式绑定丢失的三种场景（高频）
+
+方法**作为值被传递**后，调用时脱离了原对象，退回默认绑定：
+
+```js
+const obj = { name: 'obj', fn() { return this.name; } };
+
+const ref = obj.fn;          // ① 赋值：拿到的是函数值
+ref();                       //    this 丢失
+
+setTimeout(obj.fn, 100);     // ② 传参：等价的值传递
+setTimeout(() => obj.fn(), 100);  // 修复：箭头函数包一层
+
+(obj2.fn = obj.fn)();        // ③ 赋值 / 逗号等表达式：求值后引用消失
+(0, obj.fn)();               //    逗号表达式同理，this 丢失
+```
+
+修法两选一：`bind` 预绑定，或箭头函数包一层保持调用现场。
+
+### 4. 规范视角：调用表达式的求值产生「引用（Reference）」
+
+规范层面，函数调用分两步：**先对调用表达式求值，再执行函数**。`obj.fn` 求值的结果是一个**引用记录**——由「基座（base）+ 属性名」构成，还没取出函数值。`this` 的判定规则跟着它走：
+
+- 调用目标是引用且**基座是对象** → `this` = 基座（`obj.fn()` → `obj`；`obj1.obj2.fn()` 基座是 `obj2`）；
+- 调用目标是**直接标识符**（基座是环境记录）→ 严格模式 `this` 为 `undefined`，非严格替换为全局对象；
+- 求值过程**把引用变成了函数值**（赋值、逗号、`||`、传参都做这件事）→ 基座丢失 → 走默认绑定。
+
+`(0, obj.fn)()` 输出全局 / 严格下报错的原因就在这：逗号表达式对引用求了值，函数还在、基座没了。`setTimeout(obj.fn)` 丢 this 是同一件事——传参拿走的是值。
+
+### 5. 控制台验证 + 高频追问
+
+打开 Console（沙箱代码为严格模式，默认绑定直接现形）：
+
+<Sandpack
+  template="static"
+  showConsole
+  height={200}
+  html={`<p style="font-family: system-ui; padding: 12px; color: #666; font-size: 13px;">
+  打开下方 Console 查看验证输出
+</p>`}
+  js={`'use strict';
+
+// ① 默认绑定：严格模式 this === undefined
+function fn() { console.log('① 默认绑定 this：', this); }
+fn();
+
+// ② 隐式绑定：链式只看最后一层
+const obj2 = { name: 'obj2', fn() { console.log('② 隐式绑定：', this.name); } };
+const obj1 = { obj2 };
+obj1.obj2.fn();
+
+// ③ 显式绑定
+obj2.fn.call({ name: 'call 指定的' });
+
+// ④ 引用被求值 → 丢失
+const ref = obj2.fn;
+try { ref(); } catch (e) { console.log('④ 赋值后调用：', e.name, '—— this 为 undefined');
+}
+try { (0, obj2.fn)(); } catch (e) { console.log('④ 逗号表达式：', e.name, '—— 基座被求值'); }
+
+// ⑤ new 穿透 bind 的 this，参数仍生效
+function Person(name) { this.name = name; }
+const Bound = Person.bind(undefined, 'bind 传入的名字');
+const p = new Bound();
+console.log('⑤ new 优先：', p.name, '|', p instanceof Person);
+
+// ⑥ 箭头函数：this 沿词法链，call 改不动
+const arrow = () => console.log('⑥ 箭头 this 是全局对象：', this === globalThis);
+arrow.call({ name: '改不动' });`}
+/>
+
+**`bind` 后还能被 `call` 改吗？** 不能，硬绑定一次定型；唯一例外是 `new`——构造调用用新对象作 `this`，但 bind 预置的参数保留。
+
+**DOM 事件监听器里的 `this`？** 监听函数以「元素方法」的方式被调用，`this` 指向绑定事件的元素；写成箭头函数则取定义处外层的 `this`。
+
+**非严格模式为什么指向全局？** 规范规定：基座为环境记录（或引用被求值）时 `this` 为 `undefined`，**非严格模式下由全局对象替换**——是引擎的替换行为，不是绑定的本值。判断「真 this」用严格模式看最准。
+
+## 加深理解
+
+### 为什么 bind 的 this 一旦绑定就改不动
+
+`bind` 返回一个新包装函数，闭包里持有第一次的 `this` 与参数，内部固定用 `apply` 调原函数——后续对这个包装函数再 call，改的只是包装函数自己的 `this`，闭包里的那个根本不用它。手写 bind 就是证明：核心就是「闭包捕获 + 固定 apply」两个动作，new 的特判再补一个。
+
+### new 为什么能穿透 bind
+
+规范把 `new` 的优先级放在硬绑定之上：包装函数被 `new` 调用时，检测到构造调用就**改用新创建的对象作 `this`**（bind 的预置参数照常生效）。手写 bind 里对应 `this instanceof boundFn` 的判断。设计动机：硬绑定的目的是「修 this」，不该连「当构造函数」一起禁掉。
+
+### 箭头函数为什么没有 this
+
+箭头函数不创建自己的执行上下文绑定——规范里它**没有 this 的初始化**，`this` 作为标识符沿词法作用域链向外层环境查，查到的是外层函数的 `this`。所以 call/apply 对它「无效」并非忽略，而是传进去的 thisBinding 根本没被使用。这也让箭头函数成为「固定 this」的首选写法：比 bind 语义更直白。
+
+### globalThis 之前的全局对象写法
+
+浏览器 `window`、Node `global`、Web Worker `self` 互不通用；`globalThis`（ES2020）统一了入口。严谨回答里用 `globalThis` 指代全局对象，避免只在浏览器语境下成立。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）

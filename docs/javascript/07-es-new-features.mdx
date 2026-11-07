@@ -1,0 +1,113 @@
+import { Sandpack } from '../../components';
+
+# 07. ES 新特性了解哪些？最新版本加了什么？
+
+## 高频问答
+
+### 1. 版本节奏与答题思路
+
+ES2015 大版本之后改为**每年 6 月一版、按年号命名**。这题考的是「是否持续跟进」，答法：先报版本线，再挑两三个真用过的展开。截至现在（2026 年底），**最新定稿是 ES2026**（2026 年 6 月 30 日批准，ECMA-262 第 17 版）。
+
+| 版本 | 代表特性 |
+| --- | --- |
+| ES2020 | `?.` 可选链、`??` 空值合并、`BigInt`、`globalThis`、`Promise.allSettled`、动态 `import()` |
+| ES2021 | 逻辑赋值 `\|\|=` `&&=` `??=`、`replaceAll`、`Promise.any` |
+| ES2022 | 顶层 `await`、类私有字段 `#x`、`at()`、`Object.hasOwn`、`Error` 的 `cause` |
+| ES2023 | 数组**不可变变更** `toSorted / toReversed / with`、`findLast` |
+| ES2024 | `Object.groupBy`、`Promise.withResolvers`、正则 `v` 标志 |
+| ES2025 | **迭代器助手**、**Set 集合运算**、`Promise.try`、`RegExp.escape`、JSON 模块 |
+| ES2026 | `Math.sumPrecise`、`Array.fromAsync`、`Uint8Array` base64/hex、`JSON.parse` 源文本、`Error.isError` |
+
+### 2. ES2025 重点：迭代器助手与 Set 集合运算
+
+**迭代器助手（Iterator Helpers）**——迭代器原型上补齐了数组风格的方法，且**惰性求值**：
+
+```js
+const result = [1, 2, 3, 4, 5, 6].values()
+  .map(x => x * 10)      // 惰性：此刻不计算
+  .filter(x => x > 20)
+  .take(2)               // 只要 2 个，后面的元素根本不经过管道
+  .toArray();            // [30, 40]
+```
+
+数组链每次都产生中间数组；迭代器管道逐元素流过，大序列与无限序列都能处理，`NodeList`、`Map` 等一切可迭代对象通用。
+
+**Set 集合运算**——`union / intersection / difference / symmetricDifference / isSubsetOf` 等，以前要手写 `filter + has`。
+
+**其余**：`Promise.try`（同步函数包成 Promise 统一走 `.catch`）、`RegExp.escape`（字符串安全拼进正则）、`import data from './a.json' with { type: 'json' }`。
+
+### 3. ES2026（最新版）的七个特性
+
+1. **`Math.sumPrecise(iterable)`**：精确求和——`[0.1, 0.2, 0.3]` 求和得到 `0.6` 而不是 `0.6000000000000001`；
+2. **`Array.fromAsync()`**：异步可迭代直接转 `Promise<Array>`，替代手写 `for await` 收集；
+3. **`Uint8Array.fromBase64 / toBase64 / fromHex / toHex`**：二进制与 base64/hex 互转原生化，替代手写 `atob` 循环；
+4. **`JSON.parse` 源文本访问**：reviver 里能拿到原始文本，`BigInt` 等 JSON 存不下的值可以按原文恢复；
+5. **`Error.isError()`**：跨 realm（iframe / Worker）可靠判定是不是 Error；
+6. **`Iterator.concat`** 等迭代器补充；
+7. **`Map.prototype` 新工具方法**。
+
+### 4. 高频追问：TC39 流程与「Stage 4 ≠ 当年发布」
+
+特性走 **Stage 0 → 4** 五阶段（稻草人 → 草案 → 候选 → 定稿），到 Stage 4 才会被下一年版本收录；但每年版本有**冻结线**——今年最典型的例子：**Temporal 和 `using`（显式资源管理）2026 年 3 月才达到 Stage 4，错过了 ES2026 冻结线，归入 ES2027**。说「Temporal 在 ES2026」是当前最常见的过时说法。
+
+- **Temporal 是什么？** `Date` 的替代品：不可变、时区显式、日历感知——`Date` 的月份从 0 开始、时区混乱、可变状态三大顽疾一次解决，开发近十年，ES2027 落地；
+- **`using` 是什么？** 显式资源管理：`using file = open()` 作用域结束自动调 `dispose`，`try/finally` 的语法化；
+- **新特性怎么在旧环境用？** 语法走 Babel 转译、API 走 core-js polyfill，生产按 Baseline 支持度判断。
+
+### 5. 控制台实测
+
+ES2025 的迭代器助手与 Set 运算、ES2026 的 `Math.sumPrecise` 对比传统浮点累加（新特性带特性检测兜底）：
+
+<Sandpack
+  template="static"
+  showConsole
+  height={200}
+  html={`<p style="font-family: system-ui; padding: 12px; color: #666; font-size: 13px;">
+  打开下方 Console 查看验证输出
+</p>`}
+  js={`// ① ES2025 迭代器助手：惰性管道
+console.log('① 迭代器管道：',
+  [1, 2, 3, 4, 5, 6].values().map(x => x * 10).filter(x => x > 20).take(2).toArray());
+
+// ② ES2025 Set 集合运算
+const a = new Set([1, 2, 3]), b = new Set([2, 3, 4]);
+console.log('② union：', [...a.union(b)]);
+console.log('② intersection：', [...a.intersection(b)]);
+console.log('② difference：', [...a.difference(b)]);
+
+// ③ ES2026 Math.sumPrecise
+console.log('③ 普通求和：', 0.1 + 0.2 + 0.3);
+console.log('③ sumPrecise：', typeof Math.sumPrecise === 'function'
+  ? Math.sumPrecise([0.1, 0.2, 0.3])
+  : '当前环境未支持');
+
+// ④ ES2026 Array.fromAsync
+if (typeof Array.fromAsync === 'function') {
+  Array.fromAsync((async function* () { yield 10; yield 20; })())
+    .then(r => console.log('④ fromAsync：', r));
+} else {
+  console.log('④ fromAsync：当前环境未支持');
+}`}
+/>
+
+## 加深理解
+
+### `Math.sumPrecise` 算「修好浮点」吗
+
+不算。它只解决**累加误差**（用补偿求和算法抵消舍入漂移），`0.1 + 0.2 === 0.30000000000000004` 这个基本事实不变——二进制浮点无法精确表示 0.1，精确十进制需求仍要用整数分单位（分为单位存整数）或专门的十进制库。面试把这条边界说清，比背特性名加分。
+
+### 迭代器助手和数组方法怎么选
+
+数组方法**立即求值**、每步建中间数组、可反复遍历；迭代器助手**惰性**、单遍消费、零中间结构。数据已在内存且要多次用 → 数组；流式/大序列/无限序列/管道转换 → 迭代器。两者可互转（`toArray()` / `Iterator.from(array)`）。
+
+### Baseline 是什么
+
+Google / Mozilla / W3C Web DX 共同的新特性可用性标识：**Widely available**（主流浏览器全支持 30 个月）才建议生产无兜底使用；**Newly available** 刚全支持，需视用户群。比「caniuse 百分比」更适合做工程决策口径，也是回答「这个特性能不能上生产」的标准依据。
+
+### Temporal 为什么拖了近十年
+
+因为它要同时解决时区、日历（非公历）、夏令时、解析格式四大问题，且 API 面大（`Temporal.Now / PlainDate / ZonedDateTime` 等十几个类），实现与跨语言数据（Intl）的整合成本极高。它是「值得等」的那类标准——落地后 Date 的几乎所有坑都有对应解法。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）

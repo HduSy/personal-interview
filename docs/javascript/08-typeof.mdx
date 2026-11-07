@@ -1,0 +1,96 @@
+import { Sandpack } from '../../components';
+
+# 08. typeof 能判断哪些类型？有哪些陷阱？
+
+## 高频问答
+
+### 1. 八种返回值，一句话定位
+
+`typeof x` 返回操作数类型的**字符串**，全部可能取值就 8 个：
+
+| 操作数 | 返回值 |
+| --- | --- |
+| `undefined` | `'undefined'` |
+| 布尔 | `'boolean'` |
+| 数字 / `NaN` / `Infinity` | `'number'` |
+| 字符串 | `'string'` |
+| `10n` | `'bigint'` |
+| `Symbol()` | `'symbol'` |
+| 函数 / class / async / generator 函数 | `'function'` |
+| 其余一切（普通对象、数组、null、Date、RegExp、包装对象…） | `'object'` |
+
+定位：**typeof 只能区分原始类型（除 null）加函数**；引用类型的具体种类它一律回答 `'object'`。
+
+### 2. 三个经典陷阱
+
+1. **`typeof null === 'object'`**：JS 早期实现用机器码低位标签标类型，对象的标签是 `000`，而 null 在多数平台上是全零指针——被卷进对象类。这个 bug 因兼容性被规范保留至今，判定 null 只能用 `x === null`；
+2. **未声明的变量不报错**：`typeof notExist` 返回 `'undefined'` 而不是抛 `ReferenceError`——这是 JS 里**唯一能安全探测未声明标识符**的方式，常用于检测宿主 API（`typeof fetch === 'function'`）；
+3. **TDZ 例外**：`let / const` 声明之前访问，`typeof` 照样抛 `ReferenceError`——「typeof 绝对安全」在暂时性死区不成立（执行上下文题里讲过 TDZ 的来历）。
+
+### 3. typeof 判不了的，用什么补
+
+| 需求 | 正确手段 |
+| --- | --- |
+| 数组 | `Array.isArray()` |
+| `null` | `x === null` |
+| `NaN` | `Number.isNaN()` |
+| 任意对象的精确类型 | `Object.prototype.toString.call(x)` → `'[object Date]'` 等 |
+| 跨 realm 判 Error | `Error.isError()`（ES2026 新增） |
+| 某构造函数的实例 | `instanceof`（沿原型链，原型与原型链题讲过） |
+
+`Object.prototype.toString` 是其中最通用的兜底：返回 `'[object Type]'`，内置对象类型全覆盖，且跨 iframe / Worker 的 realm 依然准确——`instanceof` 做不到这一点。
+
+### 4. 控制台验证 + 高频追问
+
+打开 Console：8 种返回值、三个陷阱、精确类型兜底一次看完：
+
+<Sandpack
+  template="static"
+  showConsole
+  height={200}
+  html={`<p style="font-family: system-ui; padding: 12px; color: #666; font-size: 13px;">
+  打开下方 Console 查看验证输出
+</p>`}
+  js={`console.log('① 八种返回值');
+console.log(typeof undefined, typeof true, typeof 1, typeof 'a',
+            typeof 10n, typeof Symbol(), typeof (() => {}), typeof {});
+
+console.log('② 三个陷阱');
+console.log('typeof null:', typeof null);
+console.log('typeof notExist:', typeof notExist);          // 不报错，undefined
+try { typeof tdz; let tdz = 1; } catch (e) {                // TDZ 照样炸
+  console.log('TDZ 中 typeof：', e.name);
+}
+
+console.log('③ 引用类型全是 object');
+console.log(typeof [], typeof new Date(), typeof /a/, typeof new Number(1));
+
+console.log('④ 精确类型兜底');
+console.log(Object.prototype.toString.call([]));
+console.log(Object.prototype.toString.call(null));
+console.log(Object.prototype.toString.call(new Date()));`}
+/>
+
+**`typeof` 与 `instanceof` 怎么分工？** typeof 管「原始类型 + 是不是函数」，instanceof 管「引用类型属于哪个构造函数」（沿原型链判断）。原始类型不能用 instanceof（`1 instanceof Number` 是 false，除非包装对象），引用类型用 typeof 只能得到笼统的 `'object'`。
+
+**为什么 `class` 是 `'function'`？** class 的本质是构造函数（原型的语法糖），规范对**可调用对象**（内部有 [[Call]] 方法）特判返回 `'function'`——所以普通函数、class、async 函数、generator 函数全是 `'function'`。
+
+**`typeof new Number(1)` 为什么是 `'object'`？** 原始值和包装对象是两种东西：字面量 `1` 是原始值（number），`new Number(1)` 是对象。`===` 比较也区分它们。平时应永远写原始值，包装对象只存在于规范机制（自动装箱）里。
+
+## 加深理解
+
+### 为什么规范保留 `typeof null === 'object'`
+
+JS 第一版实现里类型标签放在机器字的低位：对象是 `000`。null 在多数平台上是空指针（全零位），按标签判定落进了对象桶。等意识到时已有网站依赖这个行为，规范索性把它写成规定。有提案想引入 `typeof null === 'null'` 修正，因破坏兼容被否——**web 兼容性高于正确性**是这个修正失败的唯一原因。
+
+### 「未声明不报错」是规范设计，不是引擎疏忽
+
+标识符解析失败本应抛 ReferenceError，但 typeof 的求值规则特殊：操作数是**不可解析的引用**时，直接返回 `'undefined'` 字符串而不取值——取值才是抛错的环节，typeof 跳过了取值。设计动机就是让「探测变量 / API 是否存在」可以写成表达式。注意区分三种状态：**未声明**（typeof 安全返回 undefined）、**声明未赋值**（值就是 undefined）、**TDZ**（let/const 已进词法环境但未初始化，typeof 也抛错）。
+
+### Object.prototype.toString 为什么比 instanceof 可靠
+
+它读的是对象内部的 `[[Symbol.toStringTag]]`（默认由内置类型设定），不依赖原型链上「哪个构造函数」——iframe 里的数组与外层数组原型不同，`instanceof Array` 为 false，但内部标签同为 `'[object Array]'`。代价是它只能识别规范定义的内置类型，自定义类只会得到 `'[object Object]'`（除非自己设 `Symbol.toStringTag`）。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）
