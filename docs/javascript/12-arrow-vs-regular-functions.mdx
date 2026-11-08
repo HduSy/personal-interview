@@ -6,7 +6,7 @@ import { Sandpack } from '../../components';
 
 ### 1. 先给答案：五个区别
 
-**一、this 的确定方式**。普通函数的 `this` 在**调用时**按四条规则绑定；箭头函数**没有自己的 this**，沿词法作用域取**定义处外层**的 this——定义时定死，`call / apply / bind` 都改不动。
+**一、this 的确定方式**。普通函数的 `this` 在**调用时**绑定，看的是**调用方式**——独立调用指向全局（严格模式下是 `undefined`）；`obj.fn()` 指向 `obj`；`call / apply / bind` 显式指定；`new` 调用指向新实例——四条规则按优先级 `new` > 显式 > 隐式 > 默认生效。箭头函数**不进这套规则**：它没有自己的 this，沿词法作用域取**定义处外层**的 this——定义时定死，`call / apply / bind` 都改不动。
 
 **二、arguments**。普通函数有自己的 `arguments`；箭头函数没有，函数体里写 `arguments` 取到的是**外层普通函数的**，收集参数要用 rest 参数 `(...args)`。
 
@@ -18,15 +18,25 @@ import { Sandpack } from '../../components';
 
 ### 2. 核心差异展开：this 的确定时机
 
-普通函数的 `this` 在**调用时**按默认 / 隐式 / 显式 / new 四条规则确定；箭头函数**没有自己的 this 绑定**——它把 `this` 当作普通标识符，沿词法作用域链取**定义处外层**的 `this`，所以是**定义时定死**的。规范机制（箭头函数没有 this 初始化、call 传了也不用）在 [this 题](/javascript/06-this)里讲过，「定义时定、像词法作用域」的对照在[词法作用域题](/javascript/03-lexical-vs-dynamic-scope)里讲过。
+四条规则管的是普通函数，箭头函数**根本不进这套规则**——它没有自己的 this 绑定，把 `this` 当作普通标识符，沿词法作用域链取**定义处外层**的 `this`，所以是**定义时定死**的。规范机制（箭头函数没有 this 初始化、call 传了也不用）在 [this 题](/javascript/06-this)里讲过，「定义时定、像词法作用域」的对照在[词法作用域题](/javascript/03-lexical-vs-dynamic-scope)里讲过。
 
 ```js
 function Timer() {
   this.s = 0;
-  setInterval(() => this.s++, 1000);   // ✓ 箭头取外层 this（实例）
-  setInterval(function () { this.s++; }, 1000); // ✗ this 指向全局/undefined
+
+  setInterval(() => this.s++, 1000);
+  // 箭头：自己没有 this → 沿作用域链向外找，命中「定义处外层」
+  // 即 Timer 执行上下文的 this = new 出来的实例 → 计数正常
+
+  setInterval(function () { this.s++; }, 1000);
+  // 普通函数：this 在「被调用时」绑定 → setInterval 只是普通地调用它
+  // （既不是 obj.fn() 也没有 call）→ 走默认绑定
+  // → 严格模式 this 为 undefined（this.s 直接抛错）；
+  //    非严格指向全局对象（s 挂到全局上，实例的计数永远不动）
 }
 ```
+
+两个回调**定义在同一个位置、被同一种方式调用**，唯一差别是 this 的来源：箭头看**定义处**（词法链命中 Timer 的 this），普通函数看**调用方式**（setInterval 的独立调用 = 默认绑定，与定义在哪儿无关）。
 
 `call / apply / bind` 的第一个参数对箭头函数**无效**——this 传了也不被使用；但 bind 的另一半功能（**预置参数**）依然生效，`add.bind(null, 10)` 照常柯里化。
 
