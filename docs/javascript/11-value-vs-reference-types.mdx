@@ -1,0 +1,116 @@
+import { Sandpack } from '../../components';
+
+# 11. 值类型和引用类型有什么区别？
+
+## 高频问答
+
+### 1. 分类与本质区别
+
+JS 的值分两类（共 8 种类型）：
+
+- **值类型（原始类型，7 种）**：`undefined / null / boolean / number / string / bigint / symbol`——变量**直接持有值**；
+- **引用类型（object 一类）**：普通对象、数组、函数、Date、RegExp、Map/Set——变量持有的是**引用（堆上对象的地址）**，对象本体在堆上。
+
+本质区别一句话：**赋值与传参时，值类型拷贝「数据本身」，引用类型拷贝「地址」**——地址一拷，两个变量指向同一个对象。
+
+### 2. 三个可验证的行为差异
+
+**赋值**：值类型改副本互不影响；引用类型改副本的属性，原对象跟着变：
+
+```js
+let a = 1, b = a;
+b = 2;                            // a 仍是 1
+
+let o1 = { n: 1 }, o2 = o1;
+o2.n = 2;                         // o1.n 也变成 2 —— 同一个对象
+```
+
+**比较**：值类型 `===` 比内容；引用类型比**地址**——`{} === {}` 与 `[] === []` 都是 `false`（[相等比较题](/javascript/09-loose-vs-strict-equality)里讲过）。
+
+**函数传参**：JS **全部按值传递**，引用类型传的「值」是地址——函数内**改属性**影响外部（长得像传引用），**整体重新赋值**不影响外部：
+
+```js
+function mutate(o)  { o.n = 99; }   // 外部看得见
+function reassign(o) { o = { n: 0 }; } // 只换了局部变量指向，外部无感
+```
+
+### 3. 原始值的不可变性
+
+原始值**不可变**：所有 string 方法都返回新字符串，`'abc'[0] = 'x'` 静默失败（严格模式报错）。对象**可变**——属性随时可增删改。这条差异是「不可变更更新」模式的根基：框架里改 state 必须建新对象/新数组，就是因为「改」对引用类型生效、对原始值根本不存在。
+
+### 4. 深浅拷贝（高频追问）
+
+| 手段 | 深度 | 短板 |
+| --- | --- | --- |
+| 赋值 `b = a` | 不拷贝，仅复制地址 | — |
+| 浅拷贝 `{...obj}` / `Object.assign` / `arr.slice()` | 第一层 | 嵌套对象仍共享引用 |
+| `structuredClone(obj)` | 深拷贝 | 不支持函数与 Symbol、DOM 节点 |
+| `JSON.parse(JSON.stringify(obj))` | 深拷贝 | 丢函数 / `undefined` / Symbol；`Date` 变字符串；循环引用直接抛错 |
+| 手写递归 + `WeakMap` | 深拷贝 | 白板题：要处理循环引用、数组、Date、Map 等 |
+
+日常首选 `structuredClone`（原生、支持循环引用和 `Map / Set / Date`）；JSON 序列化法只在「纯数据且无循环」时能用。
+
+### 5. 控制台验证 + 高频追问
+
+打开 Console：三类行为差异与深浅拷贝一次看完：
+
+<Sandpack
+  template="static"
+  showConsole
+  height={200}
+  html={`<p style="font-family: system-ui; padding: 12px; color: #666; font-size: 13px;">
+  打开下方 Console 查看验证输出
+</p>`}
+  js={`console.log('① 赋值');
+let a = 1, b = a; b = 2;
+console.log('值类型：a =', a);
+let o1 = { n: 1 }, o2 = o1; o2.n = 2;
+console.log('引用类型：o1.n =', o1.n);
+
+console.log('② 传参：改属性 vs 重新赋值');
+function mutate(o) { o.n = 99; }
+function reassign(o) { o = { n: 0 }; }
+const t = { n: 1 };
+mutate(t);   console.log('mutate 后：', t.n);
+reassign(t); console.log('reassign 后：', t.n);
+
+console.log('③ 原始值不可变');
+const s = 'abc';
+console.log('toUpperCase 返回新串：', s.toUpperCase(), '| 原串：', s);
+
+console.log('④ 浅拷贝嵌套仍共享');
+const shallow = { ...t, inner: { v: 1 } };
+const src = { inner: { v: 1 } };
+const cp = { ...src };
+cp.inner.v = 2;
+console.log('浅拷贝后源对象 inner.v =', src.inner.v);
+
+console.log('⑤ structuredClone 深拷贝');
+const deep = structuredClone(src);
+deep.inner.v = 3;
+console.log('深拷贝后源对象 inner.v =', src.inner.v);`}
+/>
+
+**「JS 是传值还是传引用？」** 严格答：**只有按值传递**。引用类型传的值恰好是地址，所以「按共享传递」是对这一行为更精确的称呼——参数拿到的是引用的副本，改它指向的对象外部可见，替换引用本身外部不可见。
+
+**`null` 是值类型为什么 `typeof` 是 `'object'`？** `null` 是原始值（值类型行为：赋值拷贝、比较比内容），typeof 的误报是历史标签 bug——[typeof 题](/javascript/08-typeof)里讲过完整来龙去脉。
+
+**怎么判断引用类型里是不是「同一个对象」？** 只能比较引用本身（`a === b`）或用 `WeakMap` 以对象为键做标记；内容深比较没有任何内置 API，需要自己递归（lodash 的 `isEqual` 干的就是这个）。
+
+## 加深理解
+
+### 「栈存原始值、堆存对象」的说法严谨吗
+
+不严谨但方向正确：规范只规定语义（值直接持有 / 引用间接持有），**存储位置是实现细节**。V8 实际做法是：对象一定在堆上；原始值随上下文放在栈或寄存器，被闭包捕获后同样会「逃逸」到堆上的环境对象里。面试稳妥的说法：概念上按「持有方式」区分，不咬死「栈 / 堆」二字，能补充实现细节加分。
+
+### 手写深拷贝要处理的四件事
+
+① **循环引用**：用 `WeakMap` 记录「已拷贝对象 → 副本」，再次遇到直接返回副本；② **类型分派**：数组、`Date`、`RegExp`、`Map`、`Set` 各有建法，不能一律 `{...obj}`；③ **丢失的键**：`Symbol` 键用 `Reflect.ownKeys()` 才能拿到；④ **函数**：一般直接复用引用（拷贝函数没有可靠语义）。写得出前两条，白板深拷贝就算合格。
+
+### 包装对象与自动装箱
+
+原始值没有属性和方法，`'abc'.length` 能用是因为**读取属性的瞬间**引擎把原始值临时包装成对应对象（装箱），表达式结束即丢弃——所以给 `'abc'.x = 1` 赋值看似成功、下一次读取就不见了（赋到了临时对象上）。`new Number(1)` 显式创建的包装对象是长期存在的引用类型，typeof 视角的对比在 [typeof 题](/javascript/08-typeof)里讲过。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）

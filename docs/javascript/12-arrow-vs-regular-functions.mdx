@@ -1,0 +1,120 @@
+import { Sandpack } from '../../components';
+
+# 12. 箭头函数和普通函数的区别是什么？
+
+## 高频问答
+
+### 1. 先给答案：五个区别
+
+**一、this 的确定方式**。普通函数的 `this` 在**调用时**按四条规则绑定；箭头函数**没有自己的 this**，沿词法作用域取**定义处外层**的 this——定义时定死，`call / apply / bind` 都改不动。
+
+**二、arguments**。普通函数有自己的 `arguments`；箭头函数没有，函数体里写 `arguments` 取到的是**外层普通函数的**，收集参数要用 rest 参数 `(...args)`。
+
+**三、构造能力**。普通函数可以 `new`；箭头函数不能，尝试 `new` 直接抛 `TypeError`。
+
+**四、prototype 属性**。普通函数有，这是实例找原型的来源；箭头函数没有——和「不能 new」是同一件事的两面。
+
+**五、声明提升与生成器**。只有普通函数的**声明形式**整体提升；箭头函数是表达式，赋给 `const / let` 受 TDZ 限制，定义语句执行前访问抛 `ReferenceError`。另外 `function*` 能写生成器，箭头形式不行。
+
+### 2. 核心差异展开：this 的确定时机
+
+普通函数的 `this` 在**调用时**按默认 / 隐式 / 显式 / new 四条规则确定；箭头函数**没有自己的 this 绑定**——它把 `this` 当作普通标识符，沿词法作用域链取**定义处外层**的 `this`，所以是**定义时定死**的。规范机制（箭头函数没有 this 初始化、call 传了也不用）在 [this 题](/javascript/06-this)里讲过，「定义时定、像词法作用域」的对照在[词法作用域题](/javascript/03-lexical-vs-dynamic-scope)里讲过。
+
+```js
+function Timer() {
+  this.s = 0;
+  setInterval(() => this.s++, 1000);   // ✓ 箭头取外层 this（实例）
+  setInterval(function () { this.s++; }, 1000); // ✗ this 指向全局/undefined
+}
+```
+
+`call / apply / bind` 的第一个参数对箭头函数**无效**——this 传了也不被使用；但 bind 的另一半功能（**预置参数**）依然生效，`add.bind(null, 10)` 照常柯里化。
+
+### 3. arguments 展开取外层
+
+```js
+function outer() {
+  const inner = () => arguments[0];   // inner 自己没有 arguments
+  return inner();                     // 拿到 outer 的 '参数'
+}
+outer('参数');
+```
+
+箭头函数里访问 `arguments` 走的是作用域链，命中外层普通函数的 arguments 对象；没有外层函数时是语法运行错误。需要收集自身参数写 `(...args)`——rest 参数本来就是 `arguments` 的现代替代。
+
+### 4. 不能 new 与没有 prototype 是一件事
+
+`new` 的第 2 步是把实例的原型指向构造函数的 `prototype`（[原型链题](/javascript/02-prototype-and-prototype-chain)讲过完整过程）；箭头函数既没有内部构造方法、也没有 `prototype` 属性，两样都缺所以 `new (() => {})()` 抛 `TypeError: not a constructor`。这也决定了它不能当类构造器、不能上原型继承链。
+
+### 5. 提升行为：只有函数声明能「先用后写」
+
+```js
+sayHi();                    // ✓ 函数声明整体提升，函数体已可用
+function sayHi() { /*...*/ }
+
+hi();                       // ✗ ReferenceError：TDZ
+const hi = () => { /*...*/ };
+```
+
+提升是**函数声明**的待遇；箭头函数写法上总是表达式（`const fn = () => {}`），跟普通函数表达式一样只有变量声明进环境、赋值要等执行——「先调用后定义」只有函数声明形式做得到。
+
+### 6. 适用与不适用 + 控制台验证
+
+**适合**：回调里保 this（定时器、数组方法、Promise 链）、纯函数工具。**不适合**：①**对象方法**——`obj = { hi: () => this }` 的 this 是定义处外层（模块 / 全局），**不是 obj**，高频陷阱；②原型方法（同理取不到实例）；③事件监听器需要 `this` 指元素时；④需要 `arguments` 的场合。判断口诀：**方法（依赖调用者）用普通函数，回调（依赖定义处环境）用箭头**。
+
+打开 Console 验证（严格模式）：
+
+<Sandpack
+  template="static"
+  showConsole
+  height={200}
+  html={`<p style="font-family: system-ui; padding: 12px; color: #666; font-size: 13px;">
+  打开下方 Console 查看验证输出
+</p>`}
+  js={`'use strict';
+
+console.log('① 回调保 this');
+const timer = {
+  name: 'timer 对象',
+  normal() { setTimeout(function () { console.log('普通：', this); }, 0); },
+  arrow()   { setTimeout(() => { console.log('箭头：', this.name); }, 0); },
+};
+timer.normal();   // undefined（严格模式默认绑定）
+timer.arrow();    // timer 对象
+
+console.log('② call 改不动箭头 this');
+const getThis = () => this === globalThis;
+console.log(getThis.call({ x: 1 }));
+
+console.log('③ arguments 沿链取外层');
+function outer() {
+  const inner = () => arguments[0];
+  return inner();
+}
+console.log(outer('拿到外层的参数'));
+
+console.log('④ 不能 new');
+try { new (() => {})(); } catch (e) { console.log(e.name, ':', e.message); }
+
+console.log('⑤ 对象方法陷阱');
+const obj = { name: 'obj', hi: () => this === globalThis };
+console.log('箭头方法的 this 是外层：', obj.hi());
+
+console.log('⑥ 没有 prototype');
+console.log('普通：', typeof (function () {}).prototype,
+            '| 箭头：', typeof (() => {}).prototype);`}
+/>
+
+## 加深理解
+
+### 回调保 this 的三代方案
+
+箭头函数出现前的两代写法：①`const self = this` 先存一份再在回调里用 `self`；②`function () {...}.bind(this)` 预绑定。箭头函数靠词法 this 一次解决——三代方案的共同目标都是「让内层函数用外层的 this」。读老代码看到 self = this 不要陌生，那就是没有箭头函数的年代。
+
+### 为什么箭头函数天生不适合面向对象
+
+它缺的不只是 this：没有 `prototype` 意味着不能当构造函数，没有自己的 this 意味着方法无法感知「谁在调用我」——而这两点是原型继承的全部交互基础。所以判断标准很干脆：**凡是「方法」（依赖调用者）用普通函数，凡是「回调」（依赖定义处环境）用箭头**。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）
