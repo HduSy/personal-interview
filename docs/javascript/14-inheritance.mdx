@@ -1,0 +1,231 @@
+import { Sandpack } from '../../components';
+
+# 14. JS 继承有几种方式？各有什么优缺点？
+
+## 高频问答
+
+### 1. 先给答案：六种演进 + class 终点
+
+面试报数「常见六种，外加 ES6 class」更稳，因为前六种是一条**演进链**——每一种都是在对上一种打补丁：
+
+**一、原型链继承**：`Child.prototype = new Parent()`。实例通过原型链够到父类属性。**缺陷**：父类的引用属性挂在子类原型上，**所有实例共享**（一个改全改）；子类实例化时**无法向父类传参**。
+
+**二、借用构造函数继承**：在 Child 里 `Parent.call(this)`。每个实例有自己的一份父类属性、能传参。**缺陷**：只继承实例属性，**父类原型上的方法拿不到**；方法只能写进构造函数，每实例一份，谈不上复用。
+
+**三、组合继承**：一 + 二结合——`Parent.call(this)` 继承实例属性，`Child.prototype = new Parent()` 继承方法。互补了两边的缺陷，是 ES5 时代的可用方案。**缺陷**：父类构造函数**被调用两次**（call 一次、造原型一次），子类原型上还挂着一份用不到的实例属性。
+
+**四、原型式继承**：不写构造函数，直接以现有对象为原型造新对象——Crockford 的 `object()` 函数，后来被规范收编为 **`Object.create(proto)`**。**缺陷**：引用属性与源对象共享（浅拷贝性质）。
+
+**五、寄生式继承**：原型式 + 造出来之后增强（挂方法再返回）。**缺陷**：方法每个对象一份，难以复用。
+
+**六、寄生组合式继承**：组合继承的优化——把「`new Parent()` 当原型」换成「**`Object.create(Parent.prototype)`** 当原型」。父类构造函数只调一次、子类原型上没有多余属性，**ES5 时代的最优解**。
+
+**七、class extends**：语言层面的标准继承，内部机制就是寄生组合式的强化版（外加 super、静态继承等新语义）。**现代项目的唯一推荐写法**，前六种的意义在于理解原理与读老代码。
+
+### 2. 六种方式的代码演示
+
+```js
+// 公共父类，下面六段共用
+function Parent(name) { this.name = name; this.colors = ['red']; }
+Parent.prototype.say = function () { return '父类方法'; };
+```
+
+#### (1) 原型链继承
+
+```js
+function Child() {}
+Child.prototype = new Parent();       // 父类实例作子类原型
+
+const a = new Child(), b = new Child();
+a.colors.push('blue');
+console.log(b.colors);                // ['red', 'blue'] —— b 被波及
+// 且 new Child() 时没有任何途径给 Parent 传 name
+```
+
+#### (2) 借用构造函数继承
+
+```js
+function Child(name) {
+  Parent.call(this, name);            // 以 Child 的 this 执行父类构造
+}
+const c = new Child('x'), d = new Child('y');
+c.colors.push('blue');
+console.log(d.colors, c.name);        // ['red'] 'x' —— 独立、能传参
+console.log(typeof c.say);            // 'undefined' —— 拿不到原型方法
+```
+
+#### (3) 组合继承
+
+```js
+function Child(name) {
+  Parent.call(this, name);            // 第一次调用：实例属性
+}
+Child.prototype = new Parent();       // 第二次调用：为了原型方法
+Child.prototype.constructor = Child;
+
+const e = new Child('x');
+e.say();                              // '父类方法' —— 能用了
+// 代价：Parent 执行两次；Child.prototype 上挂着一份多余的 name/colors
+```
+
+#### (4) 原型式继承
+
+```js
+// ES5 之前 Crockford 的写法，现在等价于 Object.create(proto)
+function object(proto) {
+  function F() {}
+  F.prototype = proto;
+  return new F();
+}
+
+const base = { colors: ['red'], say() { return 'hi'; } };
+const p1 = object(base);              // Object.create(base)
+const p2 = object(base);
+p1.colors.push('blue');
+console.log(p2.colors);               // ['red', 'blue'] —— 引用属性仍共享
+```
+
+#### (5) 寄生式继承
+
+```js
+function createChild(proto) {
+  const child = Object.create(proto);          // 原型式起步
+  child.hi = function () { return '增强方法'; }; // 造完再挂方法
+  return child;
+}
+const q = createChild(base);
+q.hi();                               // '增强方法'
+// 缺陷：hi 是每个对象一份，不像原型方法那样共享复用
+```
+
+#### (6) 寄生组合式继承
+
+```js
+function inherit(Child, Parent) {
+  Child.prototype = Object.create(Parent.prototype); // 只要原型，不执行父类构造
+  Child.prototype.constructor = Child;               // 修正 constructor 指向
+}
+function Child(name) { Parent.call(this, name); }    // 唯一一次父类调用
+inherit(Child, Parent);
+
+const x = new Child('x'), y = new Child('y');
+x.colors.push('blue');
+console.log(y.colors, x.name);        // ['red'] 'x' —— 实例独立、可传参
+console.log(x.say());                 // '父类方法' —— 原型方法可用
+// 父类只执行一次、子类原型上无冗余 —— ES5 的终点
+```
+
+两个关键动作：`Object.create(Parent.prototype)` 造一个**原型指向父类原型的新对象**（不执行父类构造函数，[原型链题](/javascript/02-prototype-and-prototype-chain)讲过它的查找路径）；补回 `constructor`（整体替换原型后默认丢失，同题加深理解里讲过原因）。
+
+### 3. class extends 比寄生组合多了什么
+
+寄生组合解决的是「实例属性 + 原型方法」的继承；class 在这之上补了四样：
+
+1. **两根链**：`Child.prototype.__proto__ → Parent.prototype`（实例方法）+ `Child.__proto__ → Parent`（静态属性与 `super` 的入口）——寄生组合只建了第一根；
+2. **super 机制**：子类构造函数里 `super()` 负责以正确 this 初始化父类部分，且**必须在访问 `this` 之前调用**；
+3. **方法不可枚举**：class 原型方法默认 `enumerable: false`（[for...in 题](/javascript/13-for-in-vs-for-of)讲过可枚举的含义）；
+4. **能正确继承内置类**：`class MyArr extends Array` 可以，ES5 任何方式都不行（原因见加深理解）。
+
+### 4. 控制台验证
+
+打开 Console：原型链继承的共享缺陷、寄生组合式的正确行为、class 版对照：
+
+<Sandpack
+  template="static"
+  showConsole
+  height={200}
+  html={`<p style="font-family: system-ui; padding: 12px; color: #666; font-size: 13px;">
+  打开下方 Console 查看验证输出
+</p>`}
+  js={`function Parent() { this.colors = ['red']; }
+Parent.prototype.say = function () { return '父类方法'; };
+
+console.log('① 原型链继承：引用属性被所有实例共享');
+function Child1() {}
+Child1.prototype = new Parent();
+const a = new Child1(), b = new Child1();
+a.colors.push('blue');
+console.log('a.colors：', a.colors, '| b.colors：', b.colors);
+
+console.log('② 借用构造函数：拿不到原型方法');
+function Child2() { Parent.call(this); }
+const c2 = new Child2();
+console.log('自己的 colors：', c2.colors, '| 原型方法：', typeof c2.say);
+
+console.log('③ 寄生组合式：一次调用、行为正确');
+function Child3() { Parent.call(this); }
+Child3.prototype = Object.create(Parent.prototype);
+Child3.prototype.constructor = Child3;
+const x = new Child3(), y = new Child3();
+x.colors.push('blue');
+console.log('x：', x.colors, '| y 不受影响：', y.colors, '| 方法可用：', x.say());
+
+console.log('④ class：等价且更省事');
+class Parent2 { constructor() { this.colors = ['red']; } say() { return 'class 方法'; } }
+class Child4 extends Parent2 { constructor() { super(); } }
+const m = new Child4(), n = new Child4();
+m.colors.push('blue');
+console.log('m：', m.colors, '| n：', n.colors, '| 方法可用：', m.say());
+console.log('静态链：', Child4.__proto__ === Parent2);`}
+/>
+
+### 5. 高频追问
+
+**组合继承那「第二次调用」具体造成什么问题？** `Child.prototype = new Parent()` 让子类原型上挂了一份 colors、name 等实例属性——实例自身的同名属性会**遮蔽**它们（赋值不沿链，[作用域与原型两条链同理](/javascript/02-prototype-and-prototype-chain)），所以平时看不出错，但它是无用的冗余，且在实例删掉自己的属性后会「露出」原型上那份旧值，制造灵异 bug。
+
+**`Object.create` 与 `new` 的区别？** `Object.create(proto)` 只建对象、连原型、**不执行任何构造函数**；`new Fn()` 会执行构造函数并把实例连到 `Fn.prototype`。继承场景要的正是「只要原型链、不要执行父类构造」。
+
+**instanceof 在这些方案里怎么工作？** 沿实例原型链找 `constructor.prototype`——寄生组合和 class 建的链都能让 `child instanceof Parent` 为 true，这也是验证继承结构的最快手段。
+
+## 加深理解
+
+### 为什么 ES5 方式继承不了 Array，class 却可以
+
+数组的 `length`、索引赋值等行为绑定在**内部槽**上——这些行为只有「真正由 Array 构造函数创建的对象」才有。ES5 的寄生组合式里，实例的 this 由 Child 创建（普通对象，没有数组内部槽），之后再怎么连原型，`push` 长度也不增长。class 的规则不同：**子类的 this 由父类先创建**——`super()` 把创建 this 的职责委托给父构造函数，`class MyArr extends Array` 的实例真正带着数组内部槽出生，行为完全正确。「this 谁来建」是 class 继承与前 ES5 继承的分水岭。
+
+### `Child.__proto__` 为什么是 Parent 而不是 Parent.prototype
+
+直觉规则「`实例.__proto__ === 构造函数.prototype`」描述的是 **new 实例化**；而 Child 不是 Parent 的实例，extends 建立的是**构造函数对构造函数**的继承——Child 本身是函数对象，它自己的原型被连到 Parent 函数对象上。这样连的必要性在静态继承：static 方法定义在 Parent **自身**（自有属性，不在 `Parent.prototype` 上），`Child.hi()` 必须沿 Child 自己的原型链命中 Parent 才拿得到；若连成 Parent.prototype，静态继承直接失效。另一根链 `Child.prototype.__proto__ → Parent.prototype` 管的才是实例方法——沙箱第 ④ 组的最后两行就是这两根链各自的验证。
+
+### super 到底是什么
+
+`super` 是指向**父类原型（方法场景）或父类构造函数（构造场景）**的语法入口，但它调用父类方法时用的 this 是**当前实例**：
+
+```js
+class Parent {
+  constructor(name) { this.name = name; }
+  say() { return `Parent.say / this.name = ${this.name}`; }
+}
+
+class Child extends Parent {
+  constructor(name) {
+    super(name);          // 构造场景：委托父类构造函数创建 this —— 必须先于一切 this 访问
+    this.tag = 'child';   // super() 之后 this 才可用
+  }
+  say() {
+    // 方法场景：沿 Child.prototype.__proto__ 找 Parent.prototype.say，this 却是当前实例
+    return `Child → ${super.say()}（this.tag = ${this.tag}）`;
+  }
+}
+
+new Child('x').say();
+// 'Child → Parent.say / this.name = x（this.tag = child）'
+// super.say() 内部拿到的 this 就是实例本身：name、tag 读的都是实例的属性
+```
+
+```js
+// 静态场景：super 沿 Child.__proto__ → Parent 那根链找
+class P2 { static create() { return 'P2.create'; } }
+class C2 extends P2 { static create() { return 'C2 → ' + super.create(); } }
+C2.create();   // 'C2 → P2.create'
+```
+
+`super.say()` 近似「`Parent.prototype.say.call(this)`」的语法糖（带 home-object 静态绑定，方法搬到哪里 super 都指向定义时的父类，不随赋值丢失）。这解释了三件事：为什么 `super()` 必须在访问 this 之前调用（this 还没被父类创建出来）；为什么 `Child.__proto__ → Parent` 那根链必须存在（静态 super 沿它找父类）；以及方法里的 super 为什么不受「函数在哪被调用」影响。
+
+### 「继承」在 JS 里的准确含义
+
+JS 的继承不是类的复制，而是**委托**：实例找不到的属性沿原型链交给上层对象处理。所以「继承有几种方式」的每种方案，本质上都在回答同一个问题——**「实例的原型链怎么连到父类那里，实例自己的属性怎么带上父类的一份」**。前六种的演进就是把这两个问题拆开、各自用最小代价解决的历程；class 只是把最优解写进了语法。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）
