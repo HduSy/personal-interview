@@ -1,0 +1,108 @@
+import { Sandpack } from '../../components';
+
+# 19. 谈谈事件循环：JS 的异步调度机制
+
+## 高频问答
+
+### 1. 先给答案：循环做什么
+
+**事件循环（Event Loop）是主线程空闲时的调度机制：执行完所有同步代码 → 把微任务队列清空 → （必要时渲染）→ 取下一个宏任务 → 再清微任务 → 如此循环**。
+
+背下来的一句话版本：**同步代码先跑完；然后微任务**整批**清空（包括清空期间新产生的）；然后才取**一个**宏任务——每个宏任务执行完，都再清一次微任务**。
+
+### 2. 两个队列：宏任务与微任务
+
+| 类别 | 成员 |
+| --- | --- |
+| **微任务** | `Promise.then / catch / finally` 回调；`await` 之后的代码（本质是 then 回调）；`queueMicrotask`；`MutationObserver` |
+| **宏任务** | **整段脚本（script，第一轮的宏任务）**；`setTimeout / setInterval`；UI 事件（click / input）；`MessageChannel / postMessage`；Node 的 `setImmediate` 与 I/O 回调 |
+| **两个易错项** | `process.nextTick`（Node）：独立队列，优先级**高于**微任务；`requestAnimationFrame`：不是任务，挂在渲染步骤里 |
+
+调度差异是全部考点：**微任务每个宏任务之后整批清空，宏任务一次只取一个**；清空期间新冒出来的微任务也在**本轮**清完——这是微任务「尽快、不插队渲染」的特性来源。script 作为第一轮宏任务也解释了「同步代码先于一切异步」（加深理解里有展开）。
+
+### 3. 经典顺序题（必考）
+
+```js
+console.log('1');
+setTimeout(() => console.log('2'));
+Promise.resolve().then(() => console.log('3'));
+console.log('4');
+// 输出：1 → 4 → 3 → 2
+```
+
+推导口诀：**同步直行 → 微任务清空 → 宏任务一个**。1、4 是同步；3 是微任务；2 是宏任务。`async` 版同一原理：`await` 之前的代码同步执行，之后的代码进微任务：
+
+```js
+async function a() {
+  console.log('1');        // 同步
+  await Promise.resolve();
+  console.log('3');        // 微任务，等价 .then(() => console.log('3'))
+}
+```
+
+### 4. 渲染插在哪
+
+一轮循环里，**微任务清空之后、下一个宏任务之前**，浏览器可能执行渲染（布局 + 绘制），`requestAnimationFrame` 的回调就在渲染前跑。这解释了[同步与异步题](/javascript/18-async-vs-sync)里「长任务冻结动画」：宏任务执行太久，渲染一直插不进来——渲染和回流的基础在[重排重绘题](/browser/01-reflow-and-repaint)。
+
+### 5. Node 的事件循环（追问向，简述）
+
+Node 用 libuv 实现自己的循环，按**阶段**推进：timers（定时器）→ pending → poll（轮询 I/O）→ check（`setImmediate`）→ close 回调。与浏览器的三点差异常被追问：
+
+1. `process.nextTick` 的优先级**高于 Promise 微任务**（两个独立队列，nextTick 先清）；
+2. `setImmediate` 在 check 阶段执行，与 `setTimeout(fn, 0)` 的先后在模块加载等场景**不保证**；
+3. 新版 Node（11 及以后）已向浏览器对齐：**每个宏任务后清微任务**，而不是每轮阶段后才清。
+
+### 6. 控制台验证 + 高频追问
+
+打开 Console：顺序题 + 微任务「清空期间追加也在本轮」的实证：
+
+<Sandpack
+  template="static"
+  showConsole
+  height={200}
+  html={`<p style="font-family: system-ui; padding: 12px; color: #666; font-size: 13px;">
+  打开下方 Console 查看验证输出
+</p>`}
+  js={`console.log('① 经典顺序');
+console.log('1');
+setTimeout(() => console.log('2 —— 宏任务'));
+Promise.resolve().then(() => console.log('3 —— 微任务'));
+console.log('4');
+
+console.log('② 微任务期间追加的微任务，同轮清空');
+setTimeout(() => console.log('宏任务 B'));
+Promise.resolve().then(() => {
+  console.log('微任务 A');
+  queueMicrotask(() => console.log('A 追加的微任务'));   // 排队尾，仍在本轮
+});
+Promise.resolve().then(() => console.log('微任务 B'));
+// 同步 → 微A → 微B → A追加的 → 宏任务B`}
+/>
+
+**「为什么需要微任务？」** 宏任务粒度太粗：定时器有最小时延、UI 事件不可控。微任务保证回调在「**当前任务刚结束、渲染还没发生**」的时机执行——Promise 状态一确定，后续逻辑立刻接上，不用等一整轮循环。
+
+**「微任务会不会饿死宏任务？」** 会。微任务队列里不断给自己追加微任务（如 `queueMicrotask` 里递归调用自己），队列永远清不空，渲染和后续宏任务全部排队等死——写递归微任务必须有终止条件。
+
+**「requestAnimationFrame 算宏任务吗？」** 不算。它挂在渲染步骤里、绘制之前执行，不属于任务队列；这也是「动画代码放 rAF 里」比 setInterval 准的原因（跟随渲染节奏而非计时节奏）。
+
+## 加深理解
+
+### Node 的六个阶段分别干什么
+
+浏览器的循环是「两条队列」，Node 的循环是「**六个功能区（阶段）按固定顺序走一圈**」，每个阶段只处理自己那类回调：**timers** 执行到期的 `setTimeout / setInterval` 回调；pending 执行上一轮遗留的 I/O 回调；idle / prepare 是引擎内部使用；**poll** 是核心站——等待并执行**绝大多数 I/O 回调**（网络、文件），空闲时在此阻塞等事件；**check** 执行 `setImmediate` 的回调，紧跟 poll 之后；close 执行 `socket.on('close')` 这类关闭回调。走完一圈回到 timers。需要记的对应关系只有三个：**timers ← 定时器，poll ← I/O，check ← setImmediate**。这也解开了「setTimeout(0) 与 setImmediate 谁先」的悬念：取决于进循环时先走到哪一站——定时器未到期就先进 poll，则 check 的 setImmediate 反而先执行；顺序由时机决定，不由书写顺序决定。
+
+### 「整段脚本是第一个宏任务」
+
+事件循环启动时，先执行 script 这个宏任务：从上到下跑完所有同步代码、登记好各个异步任务。所以任何 `setTimeout(fn, 0)` 都排不进同步代码前——不是 0 毫秒没到，是**第一轮宏任务还没结束**。这也统一解释了「同步优先」「顶层 await 之后的代码异步」两个现象。
+
+### 微任务时机的引擎实现
+
+Promise 的状态变化（resolve 被调用）把 then 回调**入微任务队列**；主线程每从宏任务（或同步代码）返回，就先把微任务队列**循环清空**再继续。微任务因此在「同一轮」里完成状态传播：一个 Promise 链的整串 then 不跨宏任务地依次执行完。理解了「入队时机」与「清空时机」这两点，任何顺序题都能现场推。
+
+### setTimeout vs setImmediate vs process.nextTick（Node 三件套）
+
+`setTimeout(fn, 0)` 进 timers 阶段；`setImmediate` 进 check 阶段；`process.nextTick` 不进任何阶段——它在**每个阶段切换之间**、微任务之前清空。优先级口诀：**nextTick > 微任务 > setImmediate（与 setTimeout 看环境）**。浏览器端没有后两者，记 Node 专属即可。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）

@@ -1,0 +1,150 @@
+import { Sandpack } from '../../components';
+
+# 17. 讲一下 JS 闭包
+
+## 高频问答
+
+### 1. 先给答案：定义 + 形成条件
+
+说人话版本：**函数「记住」了自己定义时的作用域，走到哪都带着——即使已经在那个作用域外面执行，照样能访问里面的变量**。这个「函数 + 它带出来的变量」的组合就是闭包。
+
+标准版本（面试可补）：闭包是**函数与其词法环境的组合**。
+
+形成条件就两条：**函数嵌套，内层使用了外层的变量**。注意与直觉相反的两点：
+
+- **不需要 return**——内层函数只要还引用着外层变量，闭包就成立，return 只是最常见的「把函数带出去」的方式；
+- **不要求异步或延迟执行**——闭包在函数创建时就形成了。
+
+```js
+function createWallet() {
+  let balance = 0;                 // 外面摸不到的变量
+  return {
+    deposit(n) { balance += n; },  // 内层方法引用 balance —— 闭包
+    get() { return balance; },
+  };
+}
+const w = createWallet();          // createWallet 已经执行完
+w.deposit(100);
+w.get();                           // 100 —— balance 活在闭包里
+```
+
+### 2. 机制：变量为什么没销毁
+
+createWallet 执行完、调用栈帧已销毁，`balance` 却还在——因为内层函数创建时保存了对**定义时环境的引用**，环境对象放在堆上，只要还有函数引用它就不会被回收。这根引用就是闭包的实体（[执行上下文题](/javascript/04-execution-context-stack)讲过它怎么存、[自由变量题](/javascript/16-free-variables)讲过它抓住的就是自由变量、[词法作用域题](/javascript/03-lexical-vs-dynamic-scope)的 `checkscope` 是最小验证案例）。
+
+### 3. 应用场景：闭包能干什么
+
+**一、私有变量**。上面的 wallet：外界没有任何途径直接读写 `balance`，只能通过暴露的方法——这是 ESM 出现前 JS 封装的主流手段，至今仍是「想藏数据」的最直接写法。
+
+**二、回调与异步**。事件处理器、定时器、Promise 回调「记住」定义时的变量，本质都是闭包。
+
+**三、函数工厂 / 柯里化**：
+
+```js
+const makeAdder = (a) => (b) => a + b;   // a 被闭包预置
+const add5 = makeAdder(5);
+add5(3);                                 // 8
+```
+
+**四、防抖与节流**——闭包最常考的落地题，`timer` 必须跨多次调用存活，闭包是唯一的纯 JS 手段：
+
+```js
+function debounce(fn, delay) {
+  let timer = null;                 // 闭包变量：跨调用存活
+  return function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+```
+
+**五、缓存 / 记忆化**：memoize 的缓存对象跨调用存活，同一个原理。
+
+### 4. 内存：特性和泄漏要分开说
+
+闭包让环境「多活一段时间」是**特性**，不是泄漏——它活到「引用它的函数全部不可达」为止，之后正常回收。真正的泄漏是**想释放却释放不掉**，典型三个场景：
+
+1. 事件监听器持有大对象，节点删了但**没 removeEventListener**；
+2. `setInterval` 的回调引用闭包变量，**没 clearInterval** 就一直活着；
+3. 闭包意外引用了大对象（比如整个 DOM 节点、大数组），实际只用其中一个字段——**把需要的字段提出来存，别引用整个对象**。
+
+规避手段一句话：**不用时主动断引用**（清 timer、解监听、置 null）。
+
+### 5. 控制台验证 + 高频追问
+
+打开 Console：私有性、柯里化、debounce 实测（连点三次只执行一次）：
+
+<Sandpack
+  template="static"
+  showConsole
+  height={200}
+  html={`<p style="font-family: system-ui; padding: 12px; color: #666; font-size: 13px;">
+  打开下方 Console 查看验证输出
+</p>`}
+  js={`console.log('① 私有变量：外面摸不到');
+function createWallet() {
+  let balance = 0;
+  return {
+    deposit(n) { balance += n; },
+    get() { return balance; },
+  };
+}
+const w = createWallet();
+w.deposit(100);
+console.log('通过方法访问：', w.get());
+console.log('直接访问 w.balance：', w.balance);        // undefined —— 根本不在对象上
+
+console.log('② 两次调用，两个独立闭包');
+const w2 = createWallet();
+w2.deposit(999);
+console.log('w：', w.get(), '| w2：', w2.get());        // 互不干扰
+
+console.log('③ 柯里化');
+const makeAdder = (a) => (b) => a + b;
+console.log('makeAdder(5)(3) =', makeAdder(5)(3));
+
+console.log('④ debounce：快速调三次，只执行最后一次');
+function debounce(fn, delay) {
+  let timer = null;
+  return function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+const log = debounce((v) => console.log('执行：', v), 50);
+log(1); log(2); log(3);                                // 只有 3 被打印`}
+/>
+
+**「闭包什么时候产生？」** 函数创建时就形成（引用了外层变量即闭包），return 与否、是否异步执行都不影响——只是不带到外部使用时，从外面观察不到它。
+
+**「for + var 的回调为什么输出 3 3 3？」** 所有回调的闭包指向**同一个** var 变量绑定，循环结束后值是 3；`let` 每轮新建一个绑定、各自捕获。完整推导在[作用域链题](/javascript/05-scope-chain)，自由变量视角在[自由变量题](/javascript/16-free-variables)。
+
+**「闭包的缺点？」** 只有一条要背：**持有环境不释放**，控制不当造成内存占用甚至泄漏；按第 4 节的三个场景主动断引用即可。
+
+## 加深理解
+
+### 「不 return 也有闭包」的两个口径
+
+严格口径：任何函数创建时都带着对定义环境的引用，闭包随之形成——哪怕这个函数从没离开出生地。宽松口径（多数教程与面试语境）：内层函数**被带到外层使用**、外层已执行完，才叫「产生了闭包」。两个口径不冲突，只是切面不同：前者是引擎事实，后者是可观察的行为。回答时先按宽松口径给例子，被追问再补严格口径，层次感就出来了。
+
+### var 时代的循环绑定修复：IIFE 传参
+
+`let` 出现前，让每个回调拿到自己的 `i` 靠「立即执行函数**按值传参**」——每次调用产生一个新环境、参数是值的拷贝：
+
+```js
+for (var i = 0; i < 3; i++) {
+  (function (j) {                 // j 是本次调用的独立绑定
+    setTimeout(() => console.log(j));   // 0 1 2
+  })(i);                          // 把 i 的当前值拷给 j
+}
+```
+
+对比记忆：IIFE 靠「传参拷贝」，let 靠「每轮新环境」——殊途同归到「每个回调有自己的绑定」。这也是读老代码必会的一型。
+
+### 引擎不会为「用不上的闭包」买单
+
+现代引擎按需分配闭包环境：外层函数的变量**只有被内层函数引用的**才会放进堆上的环境对象，纯粹内部的临时变量不进；内层函数没引用任何外层变量时，连环境对象都不建。所以「函数嵌套就费内存」的说法不成立，内存成本只跟「真正被闭包引用的数据」挂钩——第 4 节的泄漏排查盯的也是这份引用清单。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）
