@@ -1,0 +1,144 @@
+import { Sandpack } from '../../components';
+
+# 21. async/await 怎么用？有哪些使用要点？
+
+## 高频问答
+
+### 1. 先给答案：两个语法点
+
+**async 函数总是返回 Promise**：`return 1` 会包成 `Promise.resolve(1)`，函数里抛错则返回 rejected 的 Promise；返回的本来就是 Promise 就直接用，不双层包裹。
+
+**await 等 Promise 落定，暂停的只是当前函数**：`await x` 等到 x 有结果，把结果取出来从暂停处继续；x 是普通值就直接当结果。暂停期间主线程照常跑别的（「写法同步、机制异步」，[同步异步题](/javascript/18-async-vs-sync)里讲过）。
+
+```js
+async function getUser() {
+  const res = await fetch('/api/user');   // 等响应头
+  const data = await res.json();          // 等解析
+  return data;                            // 自动包成 Promise
+}
+```
+
+### 2. 错误处理：try/catch 回来了
+
+await 的拒绝用 try/catch 接——这是它对 then 链最大的体验优势。**一个 try 包多个 await 时，失败即停**，后面的 await 不再执行：
+
+```js
+async function load() {
+  try {
+    const a = await fetchA();
+    const b = await fetchB(a);      // fetchA 失败，这行不执行
+  } catch (e) {
+    // 任何一步的错误都在这
+  }
+}
+```
+
+也可以不 try，让错误沿 async 函数返回的 Promise 传给调用方 `.catch`——按「谁想处理谁接」选风格。
+
+### 3. 最大的坑：顺手写成串行
+
+顺序 await 就是**串行**——第二个请求要等第一个完成才发起，总耗时相加。要**并发**就先同时启动、再一起等：
+
+```js
+// 串行：≈ 2s（B 白等了 1s）
+const a = await fetchA();           // 1s
+const b = await fetchB();           // 1s
+
+// 并发写法一：≈ 1s
+const [a, b] = await Promise.all([fetchA(), fetchB()]);
+
+// 并发写法二：先拿到 Promise（已发起），再分别 await
+const pa = fetchA(), pb = fetchB();
+const a = await pa, b = await pb;
+```
+
+写法二顺带解释了原理：**请求在调用 fetch 那一刻就发出去了**，await 只是等结果——「先登记、再等待」。
+
+### 4. 循环里的 await
+
+```js
+// ❌ 经典错误：map 里的 async 回调返回 Promise，数组是 Promise[]，
+//    外层 await 一个数组等于没等
+const results = await ids.map(async (id) => await fetchById(id));
+
+// ✅ 并发：把 Promise 数组交给 all
+const results = await Promise.all(ids.map((id) => fetchById(id)));
+
+// ✅ 串行（后一个依赖前一个结果、或需要节流）：for...of 逐个 await
+for (const id of ids) {
+  await fetchById(id);
+}
+```
+
+判断口诀：**互不依赖用 all 并发，有依赖或要限流用 for...of 串行**。
+
+### 5. 控制台验证 + 高频追问
+
+打开 Console：自动包 Promise、串行/并发耗时实测、错误处理、map 姿势四组：
+
+<Sandpack
+  template="static"
+  showConsole
+  height={200}
+  html={`<p style="font-family: system-ui; padding: 12px; color: #666; font-size: 13px;">
+  打开下方 Console 查看验证输出
+</p>`}
+  js={`console.log('① async 返回的总是 Promise');
+async function f() { return 1; }
+console.log('是 Promise：', f() instanceof Promise);
+f().then((v) => console.log('拿到值：', v));
+
+console.log('② 串行 vs 并发耗时');
+const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+async function serial() {
+  const t = Date.now();
+  await delay(300); await delay(300);
+  return Date.now() - t;
+}
+async function parallel() {
+  const t = Date.now();
+  await Promise.all([delay(300), delay(300)]);
+  return Date.now() - t;
+}
+serial().then((ms) => console.log('串行：', ms, 'ms'))
+  .then(() => parallel())
+  .then((ms) => console.log('并发：', ms, 'ms'));
+
+console.log('③ try/catch：失败即停');
+(async () => {
+  try {
+    await Promise.reject(new Error('失败了'));
+    console.log('这行不会执行');
+  } catch (e) { console.log('接住：', e.message); }
+})();
+
+console.log('④ map 的正确姿势');
+const ids = [1, 2, 3];
+Promise.all(ids.map(async (id) => id * 10)).then((r) => console.log('并发结果：', r));`}
+/>
+
+**「await 的东西不是 Promise 行吗？」** 行。普通值直接当结果（内部走决议程序，thenable 会被采用——[Promise 状态题](/javascript/20-promise-states)讲过），所以 `await 5`、`await 普通对象` 都合法且立即恢复。
+
+**「能不能不用 await 直接调 async 函数？」** 能——它就是个返回 Promise 的函数，`.then` 接或放着不管都行；忘了接错误就是 unhandled rejection，和 Promise 一样。
+
+**「顶层 await 呢？」** ES2022 起模块顶层可以直接 `await`（[ES 新特性题](/javascript/07-es-new-features)列过年份）——模块系统会等它落定再执行依赖它的模块；普通 script 与函数内无此待遇。
+
+**「await 一个 rejected 且没 catch 会怎样？」** 错误沿 async 函数的返回 Promise 继续抛，与 `return Promise.reject` 等价——异常不会沉默，最终没接就是 unhandled rejection 警告。
+
+## 加深理解
+
+### await 到底脱糖成什么
+
+`await x` 的执行拆开是三步：拿到 x 并按决议程序求值 → **暂停当前函数、把控制权交还**（后面代码打包进微任务，[事件循环题](/javascript/19-event-loop)的表里「await 之后的代码」就是它）→ x 落定后把结果交给暂停点继续。所以「await 后面的代码」与「then 的回调」是同一个东西的两种写法——顺序题按微任务推即可，不需要单独记忆。
+
+### 并发限制：Promise.all 不够用时
+
+`Promise.all` 是「全并发」，上千个请求会同时打爆服务。限流思路（p-limit 类库的核心）：维护一个**执行中计数**和**等待队列**，调 scheduler 时若在跑的少于上限就立刻启动，否则把任务入队；每个任务完成后从队头取下一个补位。手写版约二十行，是「Promise + 闭包」的综合白板题——闭包变量恰好用来存计数与队列（[闭包题](/javascript/17-closures)的「跨调用存活」）。
+
+### 串行场景别为了「新」写成 all
+
+有依赖的步骤（B 要用 A 的结果）天然串行，`await fetchB(await fetchA())` 就是正确写法；看到「并发一定更快」就硬拆 all，反而把依赖逻辑搅碎。选择依据只有一个：**后一步的参数是否来自前一步的结果**——是则串行，否则并发。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）
