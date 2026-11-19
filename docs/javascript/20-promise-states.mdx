@@ -4,15 +4,13 @@ import { Sandpack } from '../../components';
 
 ## 高频问答
 
-### 1. 先给答案：三种状态 + 一条变化规则
+### 1. 面试官：JS 的 Promise 有几种状态？如何变化？
 
-Promise 一共**三种状态**：
+**回答**：一共**三种状态**：
 
 - **pending（等待）**：初始状态，还没结果；
 - **fulfilled（已兑现）**：成功，带着一个**不可变**的值；
 - **rejected（已拒绝）**：失败，带着一个**不可变**的原因。
-
-状态从哪来：`new Promise(fn)` 的参数 `fn` 是个回调函数（**executor，执行器**），引擎**立即同步执行**它，并传入两个函数参数 **`resolve` 和 `reject`**——什么时候调、调哪一个，全由 executor 里的代码决定；Promise 只负责把「你调了谁」翻译成状态。顺带一个常被问的点：**executor 是同步执行的**，`new Promise` 那一行跑完，里面的代码已经执行过了，异步的是 then 的回调。
 
 变化规则只有一条，背下来：**pending → fulfilled 或 pending → rejected，二选一、只发生一次；一旦离开 pending（落定，settled），状态和结果永远不再变**。没有 fulfilled 转 rejected，也没有改值。
 
@@ -24,24 +22,7 @@ new Promise((resolve, reject) => {
 });
 ```
 
-### 2. 什么让状态变化：四个入口
-
-1. **executor 里调 `resolve(value)`** → fulfilled；
-2. **调 `reject(reason)`** → rejected；
-3. **executor 里抛异常** → 自动 rejected（相当于隐式 `reject(错误)`），所以构造函数里的 throw 不会漏到外面；
-4. **`resolve` 了另一个 Promise** → 状态**采用**它：等那个 Promise 落定成什么，本 Promise 就落定成什么（值/原因透传）。
-
-### 3. then 链上的状态传播
-
-`then` 返回的是一个**新的 Promise**，它的状态由回调的执行结果决定——这是链式调用的全部规则：
-
-- 回调**正常返回值** → 新 Promise 是 fulfilled，值为返回值；
-- 回调**抛错** → 新 Promise 是 rejected；
-- 回调**返回一个 Promise** → 采用它的状态与值。
-
-所以 `.catch` 之后链条**恢复为 fulfilled**继续往下走；错误在链上没被 catch 就一路传到末尾。回调本身的执行时机在微任务里（[事件循环题](/javascript/19-event-loop)的队列表），pending 时 `then` 先登记、落定后触发，已落定再 `then` 同样异步执行。
-
-### 4. 控制台验证
+状态从哪来：`new Promise(fn)` 的参数 `fn` 是个回调函数（**executor，执行器**），引擎**立即同步执行**它，并传入两个函数参数 **`resolve` 和 `reject`**——什么时候调、调哪一个，全由 executor 里的代码决定；Promise 只负责把「你调了谁」翻译成状态。顺带一个常被问的点：**executor 是同步执行的**，`new Promise` 那一行跑完，里面的代码已经执行过了，异步的是 then 的回调。
 
 打开 Console：不可变性、异常自动拒绝、状态采用、链式传播四组：
 
@@ -75,15 +56,40 @@ Promise.resolve(1)
   .then((v) => console.log('catch 后恢复，值：', v));`}
 />
 
-### 5. 高频追问
+### 2. 面试官：什么操作会让状态发生变化？
 
-**「fulfilled 的值真的改不了？」** 改不了。落定后 `resolve / reject` 全部静默无效——这是 then 链可靠性的根基：同一个 Promise 不论挂多少个 `then`，看到的结果完全一致，可以放心缓存。
+**回答**：四个入口：
 
-**「then 回调里的错误，外面的 try/catch 能接住吗？」** 不能。回调在微任务里执行，try/catch 所在的同步代码早就跑完了——时序上不在一个地方。链上处理用 `.catch`，这是 Promise 错误处理的标准姿势。
+1. **executor 里调 `resolve(value)`** → fulfilled；
+2. **调 `reject(reason)`** → rejected；
+3. **executor 里抛异常** → 自动 rejected（相当于隐式 `reject(错误)`），所以构造函数里的 throw 不会漏到外面；
+4. **`resolve` 了另一个 Promise** → 状态**采用**它：等那个 Promise 落定成什么，本 Promise 就落定成什么（值/原因透传）。
 
-**「catch / then(undefined, r) / finally 什么关系？」** `.catch(r)` 就是 `.then(null, r)` 的别名；`finally` 不接收值、原样穿透（fulfilled 还是 fulfilled、值不变），只用来放「无论成败都要做」的收尾（关 loading、清定时器），回调里抛错才会把链变成 rejected。
+### 3. 面试官：then 链上的状态是怎么传播的？
 
-**「Promise 能取消吗？状态会回到 pending 吗？」** 不能。没有取消 API，也不会回退——`AbortController` 是外部信号（fetch 收到信号时自己 reject），不是 Promise 的状态机制。另外**永远 pending 也是合法的**：executor 忘了调 resolve/reject，链上回调永不执行，排查「then 不跑」先查这个。
+**回答**：`then` 返回的是一个**新的 Promise**，它的状态由回调的执行结果决定——这是链式调用的全部规则：
+
+- 回调**正常返回值** → 新 Promise 是 fulfilled，值为返回值；
+- 回调**抛错** → 新 Promise 是 rejected；
+- 回调**返回一个 Promise** → 采用它的状态与值。
+
+所以 `.catch` 之后链条**恢复为 fulfilled**继续往下走；错误在链上没被 catch 就一路传到末尾。回调本身的执行时机在微任务里（[事件循环题](/javascript/19-event-loop)的队列表），pending 时 `then` 先登记、落定后触发，已落定再 `then` 同样异步执行。
+
+### 4. 面试官：落定之后，值还改得了吗？
+
+**回答**：改不了。落定后 `resolve / reject` 全部静默无效——这是 then 链可靠性的根基：同一个 Promise 不论挂多少个 `then`，看到的结果完全一致，可以放心缓存。
+
+### 5. 面试官：then 回调里抛的错误，外面的 try/catch 能接住吗？
+
+**回答**：不能。回调在微任务里执行，try/catch 所在的同步代码早就跑完了——时序上不在一个地方。链上处理用 `.catch`，这是 Promise 错误处理的标准姿势。
+
+### 6. 面试官：catch、then(undefined, r) 和 finally 是什么关系？
+
+**回答**：`.catch(r)` 就是 `.then(null, r)` 的别名；`finally` 不接收值、原样穿透（fulfilled 还是 fulfilled、值不变），只用来放「无论成败都要做」的收尾（关 loading、清定时器），回调里抛错才会把链变成 rejected。
+
+### 7. 面试官：Promise 能取消吗？状态会回到 pending 吗？
+
+**回答**：都不能。没有取消 API，也不会回退——`AbortController` 是外部信号（fetch 收到信号时自己 reject），不是 Promise 的状态机制。另外**永远 pending 也是合法的**：executor 忘了调 resolve/reject，链上回调永不执行，排查「then 不跑」先查这个。
 
 ## 加深理解
 

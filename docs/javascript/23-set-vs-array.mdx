@@ -4,13 +4,13 @@ import { Sandpack } from '../../components';
 
 ## 高频问答
 
-### 1. 先给答案：定位一句话 + 五条区别
+### 1. 面试官：Set 和 Array 有什么区别？
 
-**Array 是有序、可重复的索引集合；Set 是无索引、不可重复的值集合**。口述五条：
+**回答**：**Array 是有序、可重复的索引集合；Set 是无索引、不可重复的值集合**。五条展开：
 
 **一、重复性**。Array 允许重复元素；Set **自动去重**——`add` 一个已存在的值是空操作。
 
-**二、下标与长度**。Array 有下标（`a[0]`）和 `length`；Set **没有下标**（`s[0]` 是 `undefined`），只有 `size`。Set 的遍历顺序按**插入顺序**（规范保证），但你不能按下标跳着访问。
+**二、下标与长度**。Array 有下标（`a[0]`）和 `length`；Set **没有下标**（`s[0]` 是 `undefined`），只有 `size`。Set 的遍历顺序按**插入顺序**（规范保证），但不能按下标跳着访问。
 
 **三、判等语义**。Set 的 `has` 用 **SameValueZero**：`NaN` 能查到、`+0 / -0` 算同一个值（三种相等的对照在[相等比较题](/javascript/09-loose-vs-strict-equality)）；对象永远按引用判——两个内容相同的 `{}` 不是同一个值。
 
@@ -18,21 +18,19 @@ import { Sandpack } from '../../components';
 
 **五、方法与互转**。Array 方法丰富（`map / filter / sort` 全家桶，[数组 API 题](/javascript/10-array-apis)）；Set 只有 `add / delete / has / forEach` 和集合运算（ES2025 的 `union / intersection / difference` 等，[ES 新特性题](/javascript/07-es-new-features)列过）。互转一行：`[...set]` 与 `new Set(arr)`。
 
-### 2. Set 的主业：去重
+### 2. 面试官：去重为什么首选 Set？
 
-```js
-const uniq = [...new Set([1, 2, 2, 3])];   // [1, 2, 3] —— 标准去重就这一行
-```
+**回答**：标准去重就一行：`const uniq = [...new Set([1, 2, 2, 3])];  // [1, 2, 3]`。
 
-两个边界要知道：**对象去重不生效**（按引用判等，两个 `{ id: 1 }` 是不同的值——要按字段去重得转成 `Map` 以字段值为键）；去重出现在 Set 之前的老方案是 `reduce` / `filter + indexOf`（O(n²)，[数组 API 题](/javascript/10-array-apis)的 reduce 惯用法里有），现在只剩教学价值。
+两个边界要知道：**对象去重不生效**（按引用判等，两个 `{ id: 1 }` 是不同的值——要按字段去重得转成 `Map` 以字段值为键）；Set 出现之前的老方案是 `reduce` / `filter + indexOf`（O(n²)，[数组 API 题](/javascript/10-array-apis)的 reduce 惯用法里有），现在只剩教学价值。
 
-### 3. 选型口诀
+### 3. 面试官：什么场景用 Set，什么场景用 Array？
 
-**关心顺序、下标、要变换加工 → Array；关心唯一、频繁查存在、集合运算 → Set**。典型场景对照：列表渲染、排序分页用 Array；标签集合、已选 id、黑白名单、交并差用 Set。
+**回答**：口诀——**关心顺序、下标、要变换加工 → Array；关心唯一、频繁查存在、集合运算 → Set**。典型对照：列表渲染、排序分页用 Array；标签集合、已选 id、黑白名单、交并差用 Set。
 
-### 4. 控制台验证
+### 4. 面试官：能写代码验证一下吗？
 
-打开 Console：去重、无下标、SameValueZero、性能对比四组：
+**回答**：可以，去重、无下标、SameValueZero、性能对比四组：
 
 <Sandpack
   template="static"
@@ -64,13 +62,17 @@ const setTime = performance.now() - t;
 console.log('includes 200 次：', arrTime.toFixed(1), 'ms | has 200 次：', setTime.toFixed(2), 'ms');`}
 />
 
-### 5. 高频追问
+### 5. 面试官：Set 能用 map、filter 这些数组方法吗？
 
-**「Set 能用 map / filter 吗？」** 不能直接用（原型上没有），两条路：转数组 `[...set].map(...)`；或用迭代器助手 `set.values().map(...).toArray()`（ES2025，[ES 新特性题](/javascript/07-es-new-features)）——Set 是可迭代对象，`for...of` 与展开都吃。
+**回答**：不能直接用（原型上没有），两条路：转数组 `[...set].map(...)`；或用迭代器助手 `set.values().map(...).toArray()`（ES2025，[ES 新特性题](/javascript/07-es-new-features)）——Set 是可迭代对象，`for...of` 与展开都吃。
 
-**「WeakSet 是什么？」** 只收对象、持弱引用（不阻止 GC 回收）、没有 size 也不可遍历——用来给对象打「处理过」标记而不延长其寿命。弱引用与不可遍历的原因在加深理解里。
+### 6. 面试官：WeakSet 是什么？
 
-**「Map 和 Set 什么关系？」** 结构同源：Map 是「键值对表」，Set 相当于「只有键、值闲置」的表——所以 Map 的键天然去重，判等也是 SameValueZero（[相等比较题](/javascript/09-loose-vs-strict-equality)讲过 Map 的键语义）。
+**回答**：只收对象、持弱引用（不阻止 GC 回收）、没有 size 也不可遍历——用来给对象打「处理过」标记而不延长其寿命。为什么不可遍历在加深理解里。
+
+### 7. 面试官：Map 和 Set 是什么关系？
+
+**回答**：结构同源：Map 是「键值对表」，Set 相当于「只有键、值闲置」的表——所以 Map 的键天然去重，判等也是 SameValueZero（[Map 和 Object 题](/javascript/24-map-vs-object)里有 Map 键的语义）。
 
 ## 加深理解
 

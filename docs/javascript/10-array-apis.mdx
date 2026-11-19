@@ -4,7 +4,9 @@ import { Sandpack } from '../../components';
 
 ## 高频问答
 
-### 1. 按功能分组
+### 1. 面试官：数组常用 API 有哪些？怎么用？
+
+**回答**：按功能分六组来说。
 
 **创建与判定**
 
@@ -25,7 +27,9 @@ new Array(3)                // [空 × 3] 稀疏数组！new Array(3, 0) 才是 
 
 **其他**：`sort` 排序、`join` 连接、`reverse` 反转、`keys / values / entries`（迭代器，配 `for...of`）。
 
-### 2. 最实用的分类：改不改原数组
+### 2. 面试官：哪些方法会改变原数组？
+
+**回答**：最实用的分法就是看**改不改原数组**：
 
 | 改变原数组（mutation） | 不改变（返回新值 / 新数组） |
 | --- | --- |
@@ -35,7 +39,9 @@ new Array(3)                // [空 × 3] 稀疏数组！new Array(3, 0) 才是 
 
 ES2023 专门发明 `to*` 系列，就是为了解决 `sort / reverse / splice` 三个高频 mutation 在 React 等场景下的拷贝烦恼（ES 新特性题里列过年份）。
 
-### 3. 两个必考的坑
+### 3. 面试官：这些 API 有什么常见的坑？
+
+**回答**：两个最常见的：`sort` 的默认比较、稀疏数组的空槽。
 
 **`sort` 默认按字符串比较**：元素先转字符串再比 UTF-16 码点——`[10, 9, 1].sort()` 得 `['1', '10', '9']` 即 `[1, 10, 9]`。数字必须传比较函数：
 
@@ -45,28 +51,7 @@ arr.sort((a, b) => a - b);   // 升序；b - a 降序
 
 **稀疏数组的空槽被跳过**：`new Array(3)` / `[,,]` 里的空槽（empty）不等于 `undefined`——`forEach / map / filter / every` 都**跳过空槽**，`for...of` 与 `Object.keys` 行为也不一致。想统一成真 `undefined` 用 `Array.from(arr)` 或 `arr.fill()` 处理。
 
-### 4. `reduce` 的四个惯用法
-
-```js
-// 求和（初始值 0 不能省，否则空数组返回 undefined 且首轮回调缺参）
-const sum = nums.reduce((a, b) => a + b, 0);
-
-// 分组（等价 ES2024 的 Object.groupBy）
-const byType = list.reduce((acc, item) => {
-  (acc[item.type] ??= []).push(item);
-  return acc;
-}, {});
-
-// 去重
-const uniq = arr.reduce((a, v) => (a.includes(v) ? a : [...a, v]), []);
-
-// 依次执行 Promise（串行）
-const run = fns.reduce((prev, fn) => prev.then(fn), Promise.resolve());
-```
-
-### 5. 控制台验证 + 高频追问
-
-打开 Console 看 sort 陷阱与 mutation / copy 对比：
+这两类坑可以打开 Console 看 sort 陷阱与 mutation / copy 对比：
 
 <Sandpack
   template="static"
@@ -96,11 +81,38 @@ console.log('⑤ reduce 分组：',
   }, {}));`}
 />
 
-**`map` 与 `forEach` 怎么选？** 要结果（新数组、链式）用 `map`；纯副作用（打日志、改外部）用 `forEach`；需要 `break` 提前退出用 `for...of` 或 `some / find`（返回真值即停）。
+### 4. 面试官：reduce 有哪些惯用法？
 
-**怎么拍平任意深度？** `flat(Infinity)`；手写版就是 `reduce + concat` 递归，白板题常考。
+**回答**：四个高频惯用法：
 
-**`Array.from` 与扩展运算符 `...` 的区别？** 都能转可迭代对象，但 `Array.from` 还能转**类数组**（有 length 的普通对象，如 `arguments`）并带 map 回调；`[...obj]` 只吃可迭代（类数组没有迭代器会报错）。
+```js
+// 求和（初始值 0 不能省，否则空数组返回 undefined 且首轮回调缺参）
+const sum = nums.reduce((a, b) => a + b, 0);
+
+// 分组（等价 ES2024 的 Object.groupBy）
+const byType = list.reduce((acc, item) => {
+  (acc[item.type] ??= []).push(item);
+  return acc;
+}, {});
+
+// 去重
+const uniq = arr.reduce((a, v) => (a.includes(v) ? a : [...a, v]), []);
+
+// 依次执行 Promise（串行）
+const run = fns.reduce((prev, fn) => prev.then(fn), Promise.resolve());
+```
+
+### 5. 面试官：map 和 forEach 怎么选？
+
+**回答**：要结果（新数组、链式）用 `map`；纯副作用（打日志、改外部）用 `forEach`；需要 `break` 提前退出用 `for...of` 或 `some / find`（返回真值即停）。
+
+### 6. 面试官：嵌套数组怎么拍平到任意深度？
+
+**回答**：`flat(Infinity)`；手写版就是 `reduce + concat` 递归，白板题常考。
+
+### 7. 面试官：Array.from 和扩展运算符有什么区别？
+
+**回答**：都能转可迭代对象，但 `Array.from` 还能转**类数组**（有 length 的普通对象，如 `arguments`）并带 map 回调；`[...obj]` 只吃可迭代（类数组没有迭代器会报错）。
 
 ## 加深理解
 

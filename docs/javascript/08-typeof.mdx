@@ -4,9 +4,9 @@ import { Sandpack } from '../../components';
 
 ## 高频问答
 
-### 1. 八种返回值，一句话定位
+### 1. 面试官：typeof 能判断哪些类型？
 
-`typeof x` 返回操作数类型的**字符串**，全部可能取值就 8 个：
+**回答**：**typeof 只能区分原始类型（除 null）加函数**，引用类型的具体种类它一律回答 `'object'`。`typeof x` 返回操作数类型的**字符串**，全部可能取值就 8 个：
 
 | 操作数 | 返回值 |
 | --- | --- |
@@ -19,15 +19,17 @@ import { Sandpack } from '../../components';
 | 函数 / class / async / generator 函数 | `'function'` |
 | 其余一切（普通对象、数组、null、Date、RegExp、包装对象…） | `'object'` |
 
-定位：**typeof 只能区分原始类型（除 null）加函数**；引用类型的具体种类它一律回答 `'object'`。
+### 2. 面试官：typeof 有哪些陷阱？
 
-### 2. 三个经典陷阱
+**回答**：三个经典陷阱：
 
 1. **`typeof null === 'object'`**：JS 早期实现用机器码低位标签标类型，对象的标签是 `000`，而 null 在多数平台上是全零指针——被卷进对象类。这个 bug 因兼容性被规范保留至今，判定 null 只能用 `x === null`；
 2. **未声明的变量不报错**：`typeof notExist` 返回 `'undefined'` 而不是抛 `ReferenceError`——这是 JS 里**唯一能安全探测未声明标识符**的方式，常用于检测宿主 API（`typeof fetch === 'function'`）；
 3. **TDZ 例外**：`let / const` 声明之前访问，`typeof` 照样抛 `ReferenceError`——「typeof 绝对安全」在暂时性死区不成立（执行上下文题里讲过 TDZ 的来历）。
 
-### 3. typeof 判不了的，用什么补
+### 3. 面试官：typeof 判不了的类型，用什么补？
+
+**回答**：按需求选正确手段：
 
 | 需求 | 正确手段 |
 | --- | --- |
@@ -40,9 +42,21 @@ import { Sandpack } from '../../components';
 
 `Object.prototype.toString` 是其中最通用的兜底：返回 `'[object Type]'`，内置对象类型全覆盖，且跨 iframe / Worker 的 realm 依然准确——`instanceof` 做不到这一点。
 
-### 4. 控制台验证 + 高频追问
+### 4. 面试官：typeof 和 instanceof 怎么分工？
 
-打开 Console：8 种返回值、三个陷阱、精确类型兜底一次看完：
+**回答**：typeof 管「原始类型 + 是不是函数」，instanceof 管「引用类型属于哪个构造函数」（沿原型链判断）。原始类型不能用 instanceof（`1 instanceof Number` 是 false，除非包装对象），引用类型用 typeof 只能得到笼统的 `'object'`。
+
+### 5. 面试官：为什么 typeof 一个 class 是 'function'？
+
+**回答**：class 的本质是构造函数（原型的语法糖），规范对**可调用对象**（内部有 [[Call]] 方法）特判返回 `'function'`——所以普通函数、class、async 函数、generator 函数全是 `'function'`。
+
+### 6. 面试官：为什么 typeof new Number(1) 是 'object'？
+
+**回答**：原始值和包装对象是两种东西：字面量 `1` 是原始值（number），`new Number(1)` 是对象。`===` 比较也区分它们。平时应永远写原始值，包装对象只存在于规范机制（自动装箱）里。
+
+### 7. 面试官：能写代码验证一下吗？
+
+**回答**：可以，打开 Console：8 种返回值、三个陷阱、精确类型兜底一次看完：
 
 <Sandpack
   template="static"
@@ -70,12 +84,6 @@ console.log(Object.prototype.toString.call([]));
 console.log(Object.prototype.toString.call(null));
 console.log(Object.prototype.toString.call(new Date()));`}
 />
-
-**`typeof` 与 `instanceof` 怎么分工？** typeof 管「原始类型 + 是不是函数」，instanceof 管「引用类型属于哪个构造函数」（沿原型链判断）。原始类型不能用 instanceof（`1 instanceof Number` 是 false，除非包装对象），引用类型用 typeof 只能得到笼统的 `'object'`。
-
-**为什么 `class` 是 `'function'`？** class 的本质是构造函数（原型的语法糖），规范对**可调用对象**（内部有 [[Call]] 方法）特判返回 `'function'`——所以普通函数、class、async 函数、generator 函数全是 `'function'`。
-
-**`typeof new Number(1)` 为什么是 `'object'`？** 原始值和包装对象是两种东西：字面量 `1` 是原始值（number），`new Number(1)` 是对象。`===` 比较也区分它们。平时应永远写原始值，包装对象只存在于规范机制（自动装箱）里。
 
 ## 加深理解
 

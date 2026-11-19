@@ -4,7 +4,9 @@ import { Sandpack } from '../../components';
 
 ## 高频问答
 
-### 1. 先给答案：两个语法点
+### 1. 面试官：async/await 怎么用？有哪些使用要点？
+
+**回答**：两个语法点。
 
 **async 函数总是返回 Promise**：`return 1` 会包成 `Promise.resolve(1)`，函数里抛错则返回 rejected 的 Promise；返回的本来就是 Promise 就直接用，不双层包裹。
 
@@ -18,9 +20,9 @@ async function getUser() {
 }
 ```
 
-### 2. 错误处理：try/catch 回来了
+### 2. 面试官：错误怎么处理？
 
-await 的拒绝用 try/catch 接——这是它对 then 链最大的体验优势。**一个 try 包多个 await 时，失败即停**，后面的 await 不再执行：
+**回答**：await 的拒绝用 try/catch 接——这是它对 then 链最大的体验优势。**一个 try 包多个 await 时，失败即停**，后面的 await 不再执行：
 
 ```js
 async function load() {
@@ -33,11 +35,11 @@ async function load() {
 }
 ```
 
-也可以不 try，让错误沿 async 函数返回的 Promise 传给调用方 `.catch`——按「谁想处理谁接」选风格。
+也可以不 try，让错误沿 async 函数返回的 Promise 传给调用方 `.catch`——按「谁想处理谁接」选风格。如果一路到结尾都没人接，错误就沿 async 函数的返回 Promise 继续抛，与 `return Promise.reject` 等价——异常不会沉默，最终没接就是 unhandled rejection 警告。
 
-### 3. 最大的坑：顺手写成串行
+### 3. 面试官：使用时最容易踩的坑是什么？
 
-顺序 await 就是**串行**——第二个请求要等第一个完成才发起，总耗时相加。要**并发**就先同时启动、再一起等：
+**回答**：顺手把并发写成**串行**——顺序 await 就是串行，第二个请求要等第一个完成才发起，总耗时相加。要**并发**就先同时启动、再一起等：
 
 ```js
 // 串行：≈ 2s（B 白等了 1s）
@@ -53,26 +55,6 @@ const a = await pa, b = await pb;
 ```
 
 写法二顺带解释了原理：**请求在调用 fetch 那一刻就发出去了**，await 只是等结果——「先登记、再等待」。
-
-### 4. 循环里的 await
-
-```js
-// ❌ 经典错误：map 里的 async 回调返回 Promise，数组是 Promise[]，
-//    外层 await 一个数组等于没等
-const results = await ids.map(async (id) => await fetchById(id));
-
-// ✅ 并发：把 Promise 数组交给 all
-const results = await Promise.all(ids.map((id) => fetchById(id)));
-
-// ✅ 串行（后一个依赖前一个结果、或需要节流）：for...of 逐个 await
-for (const id of ids) {
-  await fetchById(id);
-}
-```
-
-判断口诀：**互不依赖用 all 并发，有依赖或要限流用 for...of 串行**。
-
-### 5. 控制台验证 + 高频追问
 
 打开 Console：自动包 Promise、串行/并发耗时实测、错误处理、map 姿势四组：
 
@@ -117,13 +99,35 @@ const ids = [1, 2, 3];
 Promise.all(ids.map(async (id) => id * 10)).then((r) => console.log('并发结果：', r));`}
 />
 
-**「await 的东西不是 Promise 行吗？」** 行。普通值直接当结果（内部走决议程序，thenable 会被采用——[Promise 状态题](/javascript/20-promise-states)讲过），所以 `await 5`、`await 普通对象` 都合法且立即恢复。
+### 4. 面试官：循环里怎么用 await？
 
-**「能不能不用 await 直接调 async 函数？」** 能——它就是个返回 Promise 的函数，`.then` 接或放着不管都行；忘了接错误就是 unhandled rejection，和 Promise 一样。
+**回答**：判断口诀：**互不依赖用 all 并发，有依赖或要限流用 for...of 串行**。
 
-**「顶层 await 呢？」** ES2022 起模块顶层可以直接 `await`（[ES 新特性题](/javascript/07-es-new-features)列过年份）——模块系统会等它落定再执行依赖它的模块；普通 script 与函数内无此待遇。
+```js
+// ❌ 经典错误：map 里的 async 回调返回 Promise，数组是 Promise[]，
+//    外层 await 一个数组等于没等
+const results = await ids.map(async (id) => await fetchById(id));
 
-**「await 一个 rejected 且没 catch 会怎样？」** 错误沿 async 函数的返回 Promise 继续抛，与 `return Promise.reject` 等价——异常不会沉默，最终没接就是 unhandled rejection 警告。
+// ✅ 并发：把 Promise 数组交给 all
+const results = await Promise.all(ids.map((id) => fetchById(id)));
+
+// ✅ 串行（后一个依赖前一个结果、或需要节流）：for...of 逐个 await
+for (const id of ids) {
+  await fetchById(id);
+}
+```
+
+### 5. 面试官：await 后面的不是 Promise，行吗？
+
+**回答**：行。普通值直接当结果（内部走决议程序，thenable 会被采用——[Promise 状态题](/javascript/20-promise-states)讲过），所以 `await 5`、`await 普通对象` 都合法且立即恢复。
+
+### 6. 面试官：能不能不用 await，直接调用 async 函数？
+
+**回答**：能——它就是个返回 Promise 的函数，`.then` 接或放着不管都行；忘了接错误就是 unhandled rejection，和 Promise 一样。
+
+### 7. 面试官：顶层 await 呢？
+
+**回答**：ES2022 起模块顶层可以直接 `await`（[ES 新特性题](/javascript/07-es-new-features)列过年份）——模块系统会等它落定再执行依赖它的模块；普通 script 与函数内无此待遇。
 
 ## 加深理解
 

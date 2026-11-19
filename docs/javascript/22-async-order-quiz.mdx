@@ -4,7 +4,11 @@ import { Sandpack } from '../../components';
 
 ## 高频问答
 
-### 1. 题目与答案
+### 1. 面试官：这段代码的输出是什么？
+
+**回答**：输出是 **script start → async1 → async2 → promise → script end → async1 end → promise2 → setTimeOut**（现代引擎，2026 年所有主流浏览器一致）。
+
+题目代码：
 
 ```js
 async function async1() {
@@ -25,8 +29,6 @@ new Promise((resolve) => {
 console.log('script end');
 ```
 
-现代引擎的输出（2026 年所有主流浏览器一致）：
-
 ```text
 script start
 async1
@@ -37,24 +39,6 @@ async1 end
 promise2
 setTimeOut
 ```
-
-### 2. 推导：两遍法（同步直行 → 微任务清空 → 宏任务一个）
-
-**第一遍，只看同步代码**（[事件循环题](/javascript/19-event-loop)的口诀）：
-
-1. `script start`；
-2. `async1()` 被调用——**async 函数体在 await 之前是同步执行的**：打印 `async1`；
-3. `await async2()`——**先同步执行 async2**：打印 `async2`；随后 async1 在此挂起，`async1 end` 这行打包成微任务**入队**（此刻队里只有它）；
-4. 往下走：`new Promise` 的 **executor 同步执行**（[Promise 状态题](/javascript/20-promise-states)讲过执行器不异步）：打印 `promise`；`.then` 回调入微任务队列，**排在 async1 end 之后**；
-5. `script end`。同步代码到此结束。
-
-**第二遍，清微任务**（按入队顺序）：`async1 end` → `promise2`。
-
-**最后取宏任务**：`setTimeOut`。
-
-全部要点浓缩成一句：**`async1 end` 比 `promise2` 先输出，不是因为 await 特殊，只是因为 `async1()` 这行代码写在 `new Promise` 之前——谁先登记，谁的微任务先入队**。
-
-### 3. 控制台实测
 
 原题原样跑一遍，输出顺序眼见为实：
 
@@ -83,13 +67,33 @@ new Promise((resolve) => {
 console.log('script end');`}
 />
 
-### 4. 高频追问
+### 2. 面试官：为什么是这个顺序？怎么推的？
 
-**「await 之后的代码为什么不在 `promise` 前面打印？」** 因为 `await` 一到就把后续代码打包成微任务挂起了，控制权立刻还给主线程——`new Promise` 那行才有机会同步执行。挂起点就是同步与异步的分界（[async/await 题](/javascript/21-async-await)的脱糖三步）。
+**回答**：用[事件循环题](/javascript/19-event-loop)的口诀「**同步直行 → 微任务清空 → 宏任务一个**」，两遍法。**第一遍，只看同步代码**：
 
-**「如果把 `async1()` 挪到 `new Promise` 之后，输出变吗？」** 变。`promise` / `promise2` 的入队时机不变，但 `async1 / async2` 的同步打印会后移；更关键的是 `async1 end` 将排在 `promise2` **之后**入队——入队顺序跟书写顺序走，这就是这类题唯一的变量。
+1. `script start`；
+2. `async1()` 被调用——**async 函数体在 await 之前是同步执行的**：打印 `async1`；
+3. `await async2()`——**先同步执行 async2**：打印 `async2`；随后 async1 在此挂起，`async1 end` 这行打包成微任务**入队**（此刻队里只有它）；
+4. 往下走：`new Promise` 的 **executor 同步执行**（[Promise 状态题](/javascript/20-promise-states)讲过执行器不异步）：打印 `promise`；`.then` 回调入微任务队列，**排在 async1 end 之后**；
+5. `script end`。同步代码到此结束。
 
-**「`setTimeout` 为什么永远垫底？」** 它是宏任务，必须等微任务队列彻底清空才轮到（delay 0 只是「最早可执行时间」，[事件循环题](/javascript/19-event-loop)追问过）。
+**第二遍，清微任务**（按入队顺序）：`async1 end` → `promise2`。
+
+**最后取宏任务**：`setTimeOut`。
+
+全部要点浓缩成一句：**`async1 end` 比 `promise2` 先输出，不是因为 await 特殊，只是因为 `async1()` 这行代码写在 `new Promise` 之前——谁先登记，谁的微任务先入队**。
+
+### 3. 面试官：await 之后的代码为什么不在 promise 前面打印？
+
+**回答**：因为 `await` 一到就把后续代码打包成微任务挂起了，控制权立刻还给主线程——`new Promise` 那行才有机会同步执行。挂起点就是同步与异步的分界（[async/await 题](/javascript/21-async-await)的脱糖三步）。
+
+### 4. 面试官：把 async1() 挪到 new Promise 之后，输出变吗？
+
+**回答**：变。`promise` / `promise2` 的入队时机不变，但 `async1 / async2` 的同步打印会后移；更关键的是 `async1 end` 将排在 `promise2` **之后**入队——入队顺序跟书写顺序走，这就是这类题唯一的变量。
+
+### 5. 面试官：setTimeout 为什么永远垫底？
+
+**回答**：它是宏任务，必须等微任务队列彻底清空才轮到（delay 0 只是「最早可执行时间」，[事件循环题](/javascript/19-event-loop)追问过）。
 
 ## 加深理解
 

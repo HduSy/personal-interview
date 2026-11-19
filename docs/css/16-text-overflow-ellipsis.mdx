@@ -4,7 +4,11 @@ import { Sandpack } from '../../components';
 
 ## 高频问答
 
-### 1. 单行省略：三件套各司其职
+### 1. 面试官：如何实现单行／多行文本溢出的省略样式？
+
+**回答**：纯 CSS 就能做：单行用「三件套」，多行用 `-webkit-line-clamp` 四件套。
+
+单行省略的写法：
 
 ```css
 .ellipsis {
@@ -44,7 +48,9 @@ import { Sandpack } from '../../components';
 .no-hidden { text-overflow: ellipsis; white-space: nowrap; }`}
 />
 
-### 2. 多行省略：`-webkit-line-clamp` 四件套
+### 2. 面试官：限制最多显示两行、超出省略，怎么做？
+
+**回答**：用 `-webkit-line-clamp` 四件套：
 
 ```css
 .clamp-2 {
@@ -78,20 +84,22 @@ import { Sandpack } from '../../components';
 .clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }`}
 />
 
-### 3. 常见失效场景
+### 3. 面试官：为什么写了 text-overflow: ellipsis，省略号却不出现？
 
-失效的根源都是「没有产生溢出」或「元素不满足前提」：
+**回答**：失效的根源都是「没有产生溢出」或「元素不满足前提」：
 
 1. **宽度不受约束**：`display: inline` 或宽度自适应内容的元素不会溢出。单行省略要求元素是块级、`inline-block` 或 flex / grid 项目，且宽度被容器限制。
-2. **flex / grid 子项收缩失败**：项目 `min-width` 默认为 `auto`，长内容把宽度撑住，加 `min-width: 0` 才能收缩出溢出（两栏布局题里详细分析过）。
+2. **flex / grid 子项收缩失败**：项目 `min-width` 默认为 `auto`，长内容把宽度撑住，加 `min-width: 0` 才能收缩出溢出（[两栏布局题](/css/08-two-and-three-column-layout)里详细分析过）。
 3. **多行正好占满 N 行**：没有溢出就不显示省略号——预期行为，不是 bug。
 4. **clamp 元素不能再做 flex / grid 容器**：`display` 只能取一个值，设了 `-webkit-box` 就接管了子元素排布；卡片里既要排图标又要截标题时，把 clamp 设在内部纯文本元素上。
 
-### 4. 高频追问
+### 4. 面试官：为什么不用 JS 按字符数截断？
 
-**为什么不用 JS 截字符串？** 按字符数截断假设字符等宽，中英文混排、不同字体、窗口缩放下都会截多或截少；CSS 方案跟随容器实际宽度，响应式下自动正确。JS 只在需要交互时用——「展开 / 收起」或判断是否溢出（比较 `scrollHeight` 与 `clientHeight`）。
+**回答**：不用。按字符数截断假设字符等宽，中英文混排、不同字体、窗口缩放下都会截多或截少；CSS 方案跟随容器实际宽度，响应式下自动正确。JS 只在需要交互时用——「展开 / 收起」或判断是否溢出（比较 `scrollHeight` 与 `clientHeight`）。
 
-**省略号能换成自定义字符或渐隐吗？** `text-overflow` 的字符串值没有可用的浏览器实现；「渐隐」用绝对定位伪元素叠加 `linear-gradient` 遮罩盖在文本右缘实现。
+### 5. 面试官：省略号能换成自定义字符或渐隐效果吗？
+
+**回答**：自定义字符不能：`text-overflow` 的字符串值没有可用的浏览器实现。渐隐可以做：用绝对定位伪元素叠加 `linear-gradient` 遮罩盖在文本右缘实现。
 
 ## 加深理解
 

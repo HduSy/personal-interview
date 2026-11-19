@@ -4,9 +4,9 @@ import { Mermaid } from '../../components';
 
 ## 高频问答
 
-### 1. 需要 Web Worker 的原因
+### 1. 面试官：说说你对 Web Worker 的理解？
 
-JavaScript 是单线程的，浏览器中 JS 引擎线程与 GUI 渲染线程互斥。主线程执行高耗时计算（大型算法、大文件切片哈希、海量数据清洗、图像/视频滤镜）时，事件循环被阻塞，页面无法响应点击、滚动，也无法按时完成每帧 16.6ms 的重绘，导致卡顿、无响应甚至假死。Web Worker 允许在主线程之外创建独立后台线程并行执行耗时任务，主线程专注 UI 渲染和用户交互。
+**回答**：Web Worker 允许在主线程之外创建**独立的后台线程**并行执行耗时任务，主线程专注 UI 渲染和用户交互。它解决的痛点是：JavaScript 单线程，且 JS 引擎线程与 GUI 渲染线程互斥——主线程执行高耗时计算（大型算法、大文件哈希、海量数据清洗、图像滤镜）时，事件循环被阻塞，页面无法响应点击、滚动，也无法按时完成每帧重绘，卡顿甚至假死。把耗时计算挪进 Worker，主线程就不被拖累。
 
 <Mermaid chart={`
 sequenceDiagram
@@ -21,43 +21,36 @@ sequenceDiagram
     Note over Main: onmessage 接收数据并局部更新 UI
 `} />
 
-### 2. 通信机制与数据传递
+### 2. 面试官：主线程和 Worker 怎么通信？
 
-主线程与 Worker 内存隔离，不能直接共享同一变量，只能通过消息传递通信：发送方 `postMessage(data)`，接收方监听 `onmessage`。三种传递方式：
+**回答**：两端内存隔离，不能直接共享变量，只能**消息传递**：发送方 `postMessage(data)`，接收方监听 `onmessage`。传递有三种方式：
 
-1. **结构化克隆**：默认方式，深拷贝数据，两端各持有一份互不影响的数据；传递几百 MB 的大对象会有序列化和反序列化开销。
-2. **可转移对象**：针对 `ArrayBuffer`、`MessagePort`、`ImageBitmap` 等大二进制数据，零拷贝转移内存所有权，原线程数据变为 0 字节，耗时几乎为 0。
-3. **共享内存**：`SharedArrayBuffer` + `Atomics`，多线程共享同一块内存，`Atomics` 原子操作避免数据竞态。受 Spectre 漏洞影响，现代浏览器需在服务端配置 COOP 和 COEP 响应头才能启用。
+1. **结构化克隆**：默认方式，深拷贝数据，两端各持一份互不影响；传几百 MB 的大对象有序列化开销；
+2. **可转移对象**：针对 `ArrayBuffer`、`MessagePort`、`ImageBitmap` 等大二进制数据，**零拷贝转移内存所有权**，原线程数据变为 0 字节，耗时几乎为 0；
+3. **共享内存**：`SharedArrayBuffer` + `Atomics`，多线程共享同一块内存，`Atomics` 原子操作避免数据竞态；受 Spectre 漏洞影响，需要服务端配置 COOP / COEP 响应头才能启用。
 
-### 3. 运行环境与安全沙箱限制
+### 3. 面试官：Worker 里能操作 DOM 吗？还有哪些限制？
 
-Worker 运行在 `DedicatedWorkerGlobalScope` 中，顶层对象是 `self` 而非 `window`，并受以下限制：
+**回答**：不能操作 DOM，也访问不了 `document` 和 `window`——这从机制上杜绝了多线程竞争修改 DOM 的并发问题。完整限制见下表：
 
 | 权限维度 | Worker 内部状态 | 具体说明 |
 | --- | --- | --- |
-| **DOM 访问** | **严禁访问** | 无法访问 `document`、`window`、无法操作任何 DOM 节点（彻底杜绝多线程竞争修改 DOM 的并发死锁） |
-| **BOM 访问** | **部分受限** | 无法访问 `window.parent`、`alert`、`confirm`；但**允许访问**只读的 `navigator`（判断设备环境）和 `location`（仅 Worker 自身脚本 URL） |
-| **异步与网络通信** | **完全支持** | 允许使用 `fetch`、`XMLHttpRequest`、`WebSocket`、`setTimeout`、`setInterval` |
-| **模块与外部脚本加载** | **完全支持** | 允许使用 `importScripts('utils.js')` 同步加载外部脚本，现代浏览器支持原生 ES 模块（`new Worker('w.js', { type: 'module' })`） |
-| **同源策略限制** | **严格同源** | Worker 脚本文件的 URL 必须与主页面同源（本地测试不能用 `file://` 协议，跨域脚本需通过 Blob URL 转换绕过） |
-| **系统资源消耗** | **需手动销毁** | 每个 Worker 对应一个真实的操作系统线程，大量创建会迅速耗尽 CPU 和内存。使用完毕必须在主线程调用 `worker.terminate()` 或在内部调用 `self.close()` 主动释放 |
+| **DOM 访问** | **严禁访问** | 无法访问 `document`、`window`、无法操作任何 DOM 节点 |
+| **BOM 访问** | **部分受限** | 无法访问 `window.parent`、`alert`、`confirm`；**允许**只读的 `navigator` 和 `location`（仅 Worker 自身脚本 URL） |
+| **异步与网络** | **完全支持** | `fetch`、`XMLHttpRequest`、`WebSocket`、`setTimeout`、`setInterval` 都可用 |
+| **脚本加载** | **完全支持** | `importScripts()` 同步加载外部脚本；现代浏览器支持原生 ES 模块（`new Worker('w.js', { type: 'module' })`） |
+| **同源策略** | **严格同源** | Worker 脚本 URL 必须与主页面同源（本地 `file://` 不行，跨域脚本经 Blob URL 转换绕过） |
+| **资源消耗** | **需手动销毁** | 每个 Worker 是真实操作系统线程，大量创建会耗尽 CPU / 内存；用完调 `worker.terminate()` 或 `self.close()` 释放 |
 
-### 4. Worker 类型与应用场景
+### 4. 面试官：Worker 有哪几种类型？各用什么场景？
 
-Web Worker 分为三种：
+**回答**：三种。**Dedicated Worker（专用）**：只归属创建它的单个页面，页面关闭即销毁，最常用；**Shared Worker（共享）**：同源下多个标签页、iframe 共同连接，用于多标签页数据同步、跨页面 WebSocket 单连接复用；**Service Worker**：常驻后台代理浏览器与网络之间的请求，用于拦截请求、离线缓存（PWA）和后台推送。
 
-1. **Dedicated Worker（专用 Worker）**：仅归属于创建它的单个页面，页面关闭即销毁，最常用。
-2. **Shared Worker（共享 Worker）**：同源下多个标签页、iframe 可共同连接，用于多标签页数据同步、跨页面 WebSocket 单连接复用。
-3. **Service Worker（服务工作线程）**：常驻后台代理浏览器与网络之间的请求，用于拦截请求、离线缓存（PWA）和后台推送。
+典型场景四类：超大文件分片与哈希（GB 级视频上传前 SparkMD5 计算完整性）、海量数据导出与报表解析（几十万行 Excel/CSV 排序筛选）、Canvas 图像与音视频滤镜（配 `OffscreenCanvas`）、语法高亮与代码格式化（Monaco Editor 的语法解析）。
 
-典型场景：
+### 5. 面试官：怎么用？写个最小示例？
 
-1. **超大文件分片与哈希**：几 GB 视频上传前的前端切片，以及用 SparkMD5 计算文件完整性哈希。
-2. **前端海量数据导出与报表解析**：直接解析几十万行的 Excel/CSV 并做多维排序筛选。
-3. **Canvas 图像与音视频滤镜**：结合 `OffscreenCanvas`，把 WebGL/2D 渲染放到 Worker 后台线程。
-4. **语法高亮与代码格式化**：Monaco Editor 的语法解析器放在 Web Worker 中异步处理。
-
-### 5. 最小化代码模板
+**回答**：主线程建 Worker、postMessage 发任务、onmessage 收结果，Worker 线程 onmessage 处理并回传：
 
 ```javascript
 // main.js (主线程)

@@ -4,9 +4,9 @@ import { Sandpack } from '../../components';
 
 ## 高频问答
 
-### 1. 先给答案：六种演进 + class 终点
+### 1. 面试官：JS 继承有几种方式？各有什么优缺点？
 
-面试报数「常见六种，外加 ES6 class」更稳，因为前六种是一条**演进链**——每一种都是在对上一种打补丁：
+**回答**：常见六种，外加 ES6 class。面试报这个数更稳，因为前六种是一条**演进链**——每一种都是在对上一种打补丁：
 
 **一、原型链继承**：`Child.prototype = new Parent()`。实例通过原型链够到父类属性。**缺陷**：父类的引用属性挂在子类原型上，**所有实例共享**（一个改全改）；子类实例化时**无法向父类传参**。
 
@@ -22,7 +22,9 @@ import { Sandpack } from '../../components';
 
 **七、class extends**：语言层面的标准继承，内部机制就是寄生组合式的强化版（外加 super、静态继承等新语义）。**现代项目的唯一推荐写法**，前六种的意义在于理解原理与读老代码。
 
-### 2. 六种方式的代码演示
+### 2. 面试官：能写下这几种方式的代码吗？
+
+**回答**：可以——六段代码共用一个父类，每种的缺陷都写在注释里：
 
 ```js
 // 公共父类，下面六段共用
@@ -117,17 +119,6 @@ console.log(x.say());                 // '父类方法' —— 原型方法可�
 
 两个关键动作：`Object.create(Parent.prototype)` 造一个**原型指向父类原型的新对象**（不执行父类构造函数，[原型链题](/javascript/02-prototype-and-prototype-chain)讲过它的查找路径）；补回 `constructor`（整体替换原型后默认丢失，同题加深理解里讲过原因）。
 
-### 3. class extends 比寄生组合多了什么
-
-寄生组合解决的是「实例属性 + 原型方法」的继承；class 在这之上补了四样：
-
-1. **两根链**：`Child.prototype.__proto__ → Parent.prototype`（实例方法）+ `Child.__proto__ → Parent`（静态属性与 `super` 的入口）——寄生组合只建了第一根；
-2. **super 机制**：子类构造函数里 `super()` 负责以正确 this 初始化父类部分，且**必须在访问 `this` 之前调用**；
-3. **方法不可枚举**：class 原型方法默认 `enumerable: false`（[for...in 题](/javascript/13-for-in-vs-for-of)讲过可枚举的含义）；
-4. **能正确继承内置类**：`class MyArr extends Array` 可以，ES5 任何方式都不行（原因见加深理解）。
-
-### 4. 控制台验证
-
 打开 Console：原型链继承的共享缺陷、寄生组合式的正确行为、class 版对照：
 
 <Sandpack
@@ -169,13 +160,26 @@ console.log('m：', m.colors, '| n：', n.colors, '| 方法可用：', m.say());
 console.log('静态链：', Child4.__proto__ === Parent2);`}
 />
 
-### 5. 高频追问
+### 3. 面试官：class extends 比寄生组合式多了什么？
 
-**组合继承那「第二次调用」具体造成什么问题？** `Child.prototype = new Parent()` 让子类原型上挂了一份 colors、name 等实例属性——实例自身的同名属性会**遮蔽**它们（赋值不沿链，[作用域与原型两条链同理](/javascript/02-prototype-and-prototype-chain)），所以平时看不出错，但它是无用的冗余，且在实例删掉自己的属性后会「露出」原型上那份旧值，制造灵异 bug。
+**回答**：寄生组合解决的是「实例属性 + 原型方法」的继承；class 在这之上补了四样：
 
-**`Object.create` 与 `new` 的区别？** `Object.create(proto)` 只建对象、连原型、**不执行任何构造函数**；`new Fn()` 会执行构造函数并把实例连到 `Fn.prototype`。继承场景要的正是「只要原型链、不要执行父类构造」。
+1. **两根链**：`Child.prototype.__proto__ → Parent.prototype`（实例方法）+ `Child.__proto__ → Parent`（静态属性与 `super` 的入口）——寄生组合只建了第一根；
+2. **super 机制**：子类构造函数里 `super()` 负责以正确 this 初始化父类部分，且**必须在访问 `this` 之前调用**；
+3. **方法不可枚举**：class 原型方法默认 `enumerable: false`（[for...in 题](/javascript/13-for-in-vs-for-of)讲过可枚举的含义）；
+4. **能正确继承内置类**：`class MyArr extends Array` 可以，ES5 任何方式都不行（原因见加深理解）。
 
-**instanceof 在这些方案里怎么工作？** 沿实例原型链找 `constructor.prototype`——寄生组合和 class 建的链都能让 `child instanceof Parent` 为 true，这也是验证继承结构的最快手段。
+### 4. 面试官：组合继承调用两次父类构造函数，具体造成什么问题？
+
+**回答**：`Child.prototype = new Parent()` 让子类原型上挂了一份 colors、name 等实例属性——实例自身的同名属性会**遮蔽**它们（赋值不沿链，[作用域与原型两条链同理](/javascript/02-prototype-and-prototype-chain)），所以平时看不出错，但它是无用的冗余，且在实例删掉自己的属性后会「露出」原型上那份旧值，制造灵异 bug。
+
+### 5. 面试官：Object.create 和 new 有什么区别？
+
+**回答**：`Object.create(proto)` 只建对象、连原型、**不执行任何构造函数**；`new Fn()` 会执行构造函数并把实例连到 `Fn.prototype`。继承场景要的正是「只要原型链、不要执行父类构造」。
+
+### 6. 面试官：instanceof 在这些方案里怎么工作？
+
+**回答**：沿实例原型链找 `constructor.prototype`——寄生组合和 class 建的链都能让 `child instanceof Parent` 为 true，这也是验证继承结构的最快手段。
 
 ## 加深理解
 

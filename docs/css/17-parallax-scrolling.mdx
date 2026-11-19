@@ -4,16 +4,20 @@ import { Sandpack } from '../../components';
 
 ## 高频问答
 
-### 1. 原理：让某一层「跟不上」滚动
+### 1. 面试官：如何使用 CSS 完成视差滚动效果？
 
-视差滚动 = 不同层以不同速度滚动，近快远慢形成深度感。纯 CSS 让某层与滚动速度产生差异，四条路：
+**回答**：视差滚动就是让不同层以不同的速度滚动，近快远慢，形成深度感。纯 CSS 要做的就是让某一层与滚动速度产生差异，有四条路：
 
 - **`background-attachment: fixed`**——背景钉在视口，前景滚过它；
 - **`perspective` + `translateZ`**——3D 投影天然把远层速度按比例放慢，可做多层任意变速；
 - **`position: sticky`**——层在滚动中暂时钉住，与滚过的内容形成速度差；
 - **`animation-timeline: scroll()`**——用滚动进度直接驱动关键帧动画。
 
-### 2. `background-attachment: fixed`：一行搞定，代价最大
+四条路在层数、速度、兼容、性能上各有取舍，逐个说。
+
+### 2. 面试官：background-attachment: fixed 是怎么做视差的？
+
+**回答**：一行 `background-attachment: fixed`，把背景钉在视口、前景滚过它：
 
 ```css
 .hero {
@@ -70,7 +74,9 @@ h3 { font-size: 13px; color: #334155; }
 .fixed { background-attachment: fixed; }`}
 />
 
-### 3. `perspective` + `translateZ`：多层变速的标准做法
+### 3. 面试官：要做多层、任意速度的视差，用什么方案？
+
+**回答**：`perspective` + `translateZ`——多层、任意速度，现代浏览器（含 iOS Safari）都支持，全程 GPU 合成：
 
 ```css
 .parallax {
@@ -83,7 +89,7 @@ h3 { font-size: 13px; color: #334155; }
 .layer--base  { transform: translateZ(0); }               /* 前景：原速 */
 ```
 
-机制：`perspective: 1px` 下，`z = -1px` 的层按 **perspective / (perspective − z) = 1/2** 投影——滚动位移和视觉尺寸都缩为一半，`scale(2)` 补回尺寸，剩下的效果就是**滚动速度减半**。想要 1/3 速度就 `translateZ(-2px) scale(3)`。现代浏览器（含 iOS Safari）都支持，全程 GPU 合成。
+机制：`perspective: 1px` 下，`z = -1px` 的层按 **perspective / (perspective − z) = 1/2** 投影——滚动位移和视觉尺寸都缩为一半，`scale(2)` 补回尺寸，剩下的效果就是**滚动速度减半**。想要 1/3 速度就 `translateZ(-2px) scale(3)`。
 
 ```css
 /* 层不是滚动容器的直接子元素时，中间层要加 */
@@ -126,7 +132,9 @@ h3 { font-size: 13px; color: #334155; }
 }`}
 />
 
-### 4. `position: sticky`：零成本的单级视差
+### 4. 面试官：position: sticky 也能做视差吗？
+
+**回答**：能，做「背景钉住、内容滚过」的单级视差，全兼容、无重绘负担：
 
 ```css
 .bg {
@@ -137,7 +145,7 @@ h3 { font-size: 13px; color: #334155; }
 .content { position: relative; z-index: 1; }  /* 内容从钉住的背景上滚过 */
 ```
 
-机制：sticky 层钉住不动，内容全速滚过——速度来自「一个停住、一个在滚」。全兼容、无重绘负担。局限：只能做出「0 速 vs 全速」，做不出 0.5× 这样的中间速度。
+机制：sticky 层钉住不动，内容全速滚过——速度来自「一个停住、一个在滚」。局限：只能做出「0 速 vs 全速」，做不出 0.5× 这样的中间速度。
 
 <Sandpack
   template="static"
@@ -171,7 +179,9 @@ h3 { font-size: 13px; color: #334155; }
 }`}
 />
 
-### 5. 新标准与选型：`animation-timeline: scroll()`
+### 5. 面试官：了解 animation-timeline: scroll() 吗？
+
+**回答**：它是视差的新标准方案——用滚动进度直接驱动关键帧动画：
 
 ```css
 @keyframes parallax {
@@ -251,6 +261,14 @@ h3 { font-size: 13px; color: #334155; }
 }`}
 />
 
+### 6. 面试官：为什么不用 JS 监听 scroll 来做视差？
+
+**回答**：JS 方案是监听 `scroll`，按 `scrollY × 系数` 设置 `transform: translateY()`。它的短板是滚动事件跑在主线程，处理不及时会掉帧；CSS 方案（`translateZ`、`animation-timeline`）由合成器直接完成，主线程阻塞也不影响滚动。无论 JS 还是 CSS，**动画只动 `transform`**——动 `top`、`margin` 会触发重排，滚动场景下必掉帧。
+
+### 7. 面试官：能总结一下吗？
+
+**回答**：四个方案用一张表收尾：
+
 | 方案 | 层数 | 速度 | 兼容 | 性能 |
 | --- | --- | --- | --- | --- |
 | `background-attachment: fixed` | 背景 1 层 | 固定 0 速 | iOS 失效 | 差（整屏重绘） |
@@ -258,7 +276,7 @@ h3 { font-size: 13px; color: #334155; }
 | `position: sticky` | 背景 1 层 | 固定 0 速 | 全兼容 | 好 |
 | `animation-timeline: scroll()` | 多层 | 任意比例 | Firefox 未支持 | 好 |
 
-**高频追问：JS 方案怎么做、差在哪？** 监听 `scroll`，按 `scrollY × 系数` 设置 `transform: translateY()`。JS 的短板是滚动事件跑在主线程，处理不及时会掉帧；CSS 方案（`translateZ`、`animation-timeline`）由合成器直接完成，主线程阻塞也不影响滚动。**动画只动 `transform`**——动 `top`、`margin` 会触发重排，滚动场景下必掉帧。
+一句话选型：只要背景钉住选 `sticky`，要多层变速选 `perspective` + `translateZ`，新项目可上 `animation-timeline: scroll()` 并用 `@supports` 兜底；`background-attachment: fixed` 移动端不要用——iOS Safari 不支持，性能也差。
 
 ## 加深理解
 

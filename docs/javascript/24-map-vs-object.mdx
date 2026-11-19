@@ -4,9 +4,9 @@ import { Sandpack } from '../../components';
 
 ## 高频问答
 
-### 1. 先给答案：定位一句话 + 五条区别
+### 1. 面试官：Map 和 Object 有什么区别？
 
-**Object 的键只支持 String 和 Symbol 类型，Map 的键支持任意类型**。口述五条：
+**回答**：**Object 的键只支持 String 和 Symbol 类型，Map 的键支持任意类型**。五条展开：
 
 **一、键的类型**。Object 的键只能是字符串或 Symbol——**数字键会被转成字符串**（`obj[1]` 与 `obj['1']` 是同一个键，高频陷阱）；Map 的键**任意类型**：对象、函数、`NaN` 都能当键，判等用 SameValueZero（[相等比较题](/javascript/09-loose-vs-strict-equality)讲过 Map 键的语义）。
 
@@ -18,13 +18,13 @@ import { Sandpack } from '../../components';
 
 **五、性能倾向**。Map 为**频繁增删键**优化（哈希表，增删查 O(1)）；Object 的引擎优化面向「形状稳定」的访问，运行时频繁增删键会破坏形状优化。动态字典选 Map。
 
-### 2. 选型口诀
+### 2. 面试官：开发里怎么选？
 
-**JSON 载荷、结构固定、点语法访问 → Object；键是动态的 / 非字符串 / 频繁增删 / 要顺序保证 → Map**。典型分工：配置对象、接口数据用 Object；以 DOM 元素或对象为键的缓存表、按字段值建索引、需要稳定遍历序的表用 Map。
+**回答**：口诀——**JSON 载荷、结构固定、点语法访问 → Object；键是动态的 / 非字符串 / 频繁增删 / 要顺序保证 → Map**。典型分工：配置对象、接口数据用 Object；以 DOM 元素或对象为键的缓存表、按字段值建索引、需要稳定遍历序的表用 Map。
 
-### 3. 控制台验证
+### 3. 面试官：能写代码验证一下吗？
 
-打开 Console：六个关键行为一次看完：
+**回答**：可以，六个关键行为一次看完：
 
 <Sandpack
   template="static"
@@ -62,17 +62,21 @@ console.log('Object → Map：', new Map(Object.entries(obj)));
 console.log('Map → Object：', Object.fromEntries(new Map([['a', 1]])));`}
 />
 
-### 4. 高频追问
+### 4. 面试官：Map 能直接 JSON.stringify 吗？
 
-**「Map 能直接 JSON.stringify 吗？」** 不能，`JSON.stringify(map)` 只得到 `{}`——JSON 只认 Object 的字符串键。先 `Object.fromEntries(map)` 转 Object 再序列化；反方向 `new Map(Object.entries(obj))`。这也是「与后端交互的载荷用 Object」的根本原因。
+**回答**：不能，`JSON.stringify(map)` 只得到 `{}`——JSON 只认 Object 的字符串键。先 `Object.fromEntries(map)` 转 Object 再序列化；反方向 `new Map(Object.entries(obj))`。这也是「与后端交互的载荷用 Object」的根本原因。
 
-**「Map 怎么遍历？」** `for (const [k, v] of map)`，或 `map.forEach((v, k) => ...)`（注意 forEach 参数是**值在前**，与数组回调一致）；`keys() / values() / entries()` 拿迭代器。
+### 5. 面试官：Map 怎么遍历？WeakMap 呢？
 
-**「WeakMap 呢？」** 键只能是对象、持弱引用（键对象只剩 WeakMap 引用时可被回收）、没有 size 不可遍历——[Set 和 Array 题](/javascript/23-set-vs-array)的加深理解讲过为什么不可遍历；经典用途是给对象挂私有数据和解循环引用（[值类型题](/javascript/11-value-vs-reference-types)的手写深拷贝）。
+**回答**：Map 用 `for (const [k, v] of map)`，或 `map.forEach((v, k) => ...)`（注意 forEach 参数是**值在前**，与数组回调一致）；`keys() / values() / entries()` 拿迭代器。WeakMap 的键只能是对象、持弱引用（键对象只剩 WeakMap 引用时可被回收）、没有 size 不可遍历——[Set 和 Array 题](/javascript/23-set-vs-array)的加深理解讲过为什么不可遍历；经典用途是给对象挂私有数据和解循环引用（[值类型题](/javascript/11-value-vs-reference-types)的手写深拷贝）。
 
-**「既然 Map 这么强，Object 为什么不淘汰？」** 三样硬需求：**字面量语法**（`{ a: 1 }` 写起来最短）、**点语法与解构**、**JSON 互操作**。固定结构的「记录」用 Object 依然是最好的；Map 赢的是「表」的场景。
+### 6. 面试官：Map 这么强，Object 为什么没被淘汰？
 
-### 5. 特性速查表
+**回答**：三样硬需求：**字面量语法**（`{ a: 1 }` 写起来最短）、**点语法与解构**、**JSON 互操作**。固定结构的「记录」用 Object 依然是最好的；Map 赢的是「表」的场景。
+
+### 7. 面试官：能总结一下吗？
+
+**回答**：用一张速查表收尾：
 
 | 特性 | Object | Map |
 | --- | --- | --- |
