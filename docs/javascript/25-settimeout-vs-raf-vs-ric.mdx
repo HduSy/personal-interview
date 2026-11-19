@@ -1,0 +1,97 @@
+import { Sandpack } from '../../components';
+
+# 25. setTimeout、requestAnimationFrame 和 requestIdleCallback 有什么区别？
+
+## 高频问答
+
+### 1. 面试官：说说 setTimeout、requestAnimationFrame 和 requestIdleCallback 的区别？
+
+**回答**：核心区别是**调度依据不同**——setTimeout 按「时间」调度，rAF 按「帧」调度，rIC 按「空闲」调度。
+
+具体说：`setTimeout(fn, delay)` 的含义是「**至少** delay 毫秒后」把回调作为宏任务入队，时间到了还要排队，与页面渲染无关；`requestAnimationFrame` 的回调在**每一帧渲染之前**执行，与浏览器渲染节奏对齐（普通屏约 16.7ms 一次）；`requestIdleCallback` 只在一帧的渲染任务做完**还有剩余时间**时才执行，忙的时候可能一直得不到执行。
+
+一句话收尾：**setTimeout 等时间，rAF 等下一帧，rIC 等空闲**。
+
+### 2. 面试官：它们在一帧里分别什么时机执行？
+
+**回答**：一帧的时间线是这样：
+
+```text
+一帧（约 16.7ms，随刷新率变化）
+├─ 宏任务（setTimeout 到期的回调在这跑）
+├─ 微任务清空
+├─ rAF 回调            ← 渲染前：改样式的最后机会
+├─ 样式计算 → 布局 → 绘制 → 合成
+└─ requestIdleCallback ← 帧内剩余空闲时才跑
+```
+
+rAF 在渲染步骤开头——回调里改 DOM / 样式，**同一帧**就应用，所以动画改 `transform` 放这里最顺；setTimeout 到期的回调在宏任务阶段跑；rIC 在帧尾吃剩余时间。渲染步骤插在微任务之后、下一个宏任务之前（[事件循环题](/javascript/19-event-loop)讲过时机，重排重绘的细节在[浏览器渲染题](/browser/01-reflow-and-repaint)）。可以现场验证，同一个 tick 注册三个回调看时刻：
+
+<Sandpack
+  template="static"
+  showConsole
+  height={200}
+  html={`<p style="font-family: system-ui; padding: 12px; color: #666; font-size: 13px;">
+  打开下方 Console 查看验证输出
+</p>`}
+  js={`const t0 = performance.now();
+const at = () => (performance.now() - t0).toFixed(1) + 'ms';
+
+console.log('同步代码结束：', at());
+
+setTimeout(() => console.log('setTimeout 回调：', at()), 0);
+requestAnimationFrame(() => console.log('rAF 回调（渲染前）：', at()));
+if (typeof requestIdleCallback === 'function') {
+  requestIdleCallback((deadline) =>
+    console.log('rIC 回调（帧内空闲），剩余', deadline.timeRemaining().toFixed(0) + 'ms：', at()));
+} else {
+  console.log('rIC：当前环境未支持');
+}
+
+// 典型顺序：rAF（渲染前）→ setTimeout（下一宏任务）→ rIC（帧尾空闲）`}
+/>
+
+### 3. 面试官：setTimeout 的延时准吗？
+
+**回答**：不准，只能当「至少等多久」用。三个原因：到点后回调还要排队，主线程不空出来就一直等；定时器回调里再设定时器、连续套超过 5 层，最小延时被浏览器强制抬到 4ms（防递归定时器刷爆 CPU）；切到后台的标签页，定时器最多每秒触发一次（省电）。完整分析在[同步异步题](/javascript/18-async-vs-sync)的加深理解。
+
+### 4. 面试官：动画为什么用 rAF，不用 setTimeout / setInterval？
+
+**回答**：两个原因。第一，**帧不对齐**：`1000 / 60 ≈ 16.7ms` 不是整数，定时器自己会漂移，而且触发时刻和浏览器实际渲染的时刻错开，表现出来就是丢帧、跳帧。第二，**停不下来**：页面切后台定时器还在跑，rAF 在页面不可见时自动暂停，省电省 CPU——这是特性不是缺陷。rAF 是浏览器唯一保证「每次渲染前执行一次」的接口。
+
+### 5. 面试官：rAF 算宏任务吗？
+
+**回答**：不算。它不属于任务队列，挂在渲染步骤里、绘制之前执行——所以同一轮里它比 setTimeout 的宏任务先跑。[事件循环题](/javascript/19-event-loop)的追问里专门讲过这一点。
+
+### 6. 面试官：requestIdleCallback 一直没空闲怎么办？
+
+**回答**：rIC 不保证执行，两个手段：传第二个参数 `{ timeout: 毫秒 }`，到期强制执行；或把任务拆小，回调里用 `deadline.timeRemaining()` 查剩余时间（上限约 50ms），干一段查一次、不够就收手，剩余工作重新排队。另外它只适合**可延迟、可分片**的低优先级任务（埋点、预加载）；重计算不要塞给它，挪去 [Web Worker](/javascript/01-web-worker)。
+
+### 7. 面试官：能总结一下吗？
+
+**回答**：可以用一张表收尾：
+
+| | setTimeout | rAF | rIC |
+| --- | --- | --- | --- |
+| 调度依据 | 时间（至少 delay） | 帧（渲染前） | 空闲（帧内剩余） |
+| 所属类别 | 宏任务 | 渲染步骤，非任务 | 空闲回调 |
+| 典型用途 | 通用延时、兜底降速 | 动画、视觉更新 | 低优先级后台任务 |
+| 执行保证 | 无（忙则顺延） | 每帧一次（可见时） | 无（可 timeout 强制） |
+| 页面隐藏时 | 节流到约 1s | 自动暂停 | 更难有空闲 |
+| 取消 | `clearTimeout` | `cancelAnimationFrame` | `cancelIdleCallback` |
+
+再补一个选择视角：三者是**优先级阶梯**——用户看得见的（动画）用 rAF，要准时的（延时、轮询）用 setTimeout，什么时候都行的（埋点、预热）用 rIC。
+
+## 加深理解
+
+### rAF 的频率不是固定 60，是「跟随显示器」
+
+rAF 跟着显示器的垂直同步信号走：普通屏 60Hz 就是每 16.7ms 一次，120Hz 屏每 8.3ms 一次，浏览器保证「每次渲染前调用」而不是「每秒 60 次」。所以 rAF 动画的正确写法是**按时间差推进**（记录上一帧时间戳，位移 = 速度 × 实际间隔），不能假设每帧 16.7ms——否则高刷屏上动画快一倍。
+
+### rIC 的 50ms 上限从哪来
+
+`timeRemaining()` 的返回值被限制在约 50ms 以内：留出足够余量让浏览器处理输入和渲染，保证用户交互的响应延迟在可感知阈值之下。这也定义了 rIC 的使用姿势——回调里不能干超过几十毫秒的活，每次干一小段、看一眼剩余、不够就把剩余工作重新排队，本质是**协作式调度**：任务主动让出，而不是被抢占。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）

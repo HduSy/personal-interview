@@ -1,0 +1,114 @@
+import { Sandpack } from '../../components';
+
+# 24. Map 和 Object 有什么区别？
+
+## 高频问答
+
+### 1. 先给答案：定位一句话 + 五条区别
+
+**Object 的键只支持 String 和 Symbol 类型，Map 的键支持任意类型**。口述五条：
+
+**一、键的类型**。Object 的键只能是字符串或 Symbol——**数字键会被转成字符串**（`obj[1]` 与 `obj['1']` 是同一个键，高频陷阱）；Map 的键**任意类型**：对象、函数、`NaN` 都能当键，判等用 SameValueZero（[相等比较题](/javascript/09-loose-vs-strict-equality)讲过 Map 键的语义）。
+
+**二、原型链**。Object 查键会一路查到原型上：`'toString' in {}` 是 true——你没存过它，它是从原型**继承**来的。所以拿 Object 当字典时，**不能用 `in` 判断键是否存在**（继承来的名字永远查得到）。Map 只认显式放进去的键，**没放就是没有**。要「不带原型的干净对象」用 `Object.create(null)`（[原型链题](/javascript/02-prototype-and-prototype-chain)提过）。
+
+**三、顺序**。Object 的键顺序遵循固定规则：**整数键按数值升序排在最前，其余键按写入顺序**；Map **严格按插入顺序**遍历，永远可预测。
+
+**四、尺寸与迭代**。Map 有 `size`，自身可迭代（`for...of` 直接出 `[键, 值]`）；Object 没有 size，也不能直接迭代——普通对象没有迭代器（[for...in / for...of 题](/javascript/13-for-in-vs-for-of)），要 `Object.keys / entries` 转一圈。
+
+**五、性能倾向**。Map 为**频繁增删键**优化（哈希表，增删查 O(1)）；Object 的引擎优化面向「形状稳定」的访问，运行时频繁增删键会破坏形状优化。动态字典选 Map。
+
+### 2. 选型口诀
+
+**JSON 载荷、结构固定、点语法访问 → Object；键是动态的 / 非字符串 / 频繁增删 / 要顺序保证 → Map**。典型分工：配置对象、接口数据用 Object；以 DOM 元素或对象为键的缓存表、按字段值建索引、需要稳定遍历序的表用 Map。
+
+### 3. 控制台验证
+
+打开 Console：六个关键行为一次看完：
+
+<Sandpack
+  template="static"
+  showConsole
+  height={200}
+  html={`<p style="font-family: system-ui; padding: 12px; color: #666; font-size: 13px;">
+  打开下方 Console 查看验证输出
+</p>`}
+  js={`console.log('① Object 的数字键被转成字符串');
+const o = {}; o[1] = 'a';
+console.log('keys：', Object.keys(o), "| o['1'] =", o['1']);
+
+console.log('② Map 任意类型键，对象按引用判等');
+const m = new Map();
+const key = { id: 1 };
+m.set(key, '值');
+m.set({ id: 1 }, '长得一样也是另一个键');
+console.log('size：', m.size, '| 取值：', m.get(key));
+
+console.log('③ NaN 能作键（SameValueZero）');
+m.set(NaN, 'ok');
+console.log(m.get(NaN));
+
+console.log('④ 原型链：Object 有，Map 没有');
+console.log("'toString' in {}：", 'toString' in {});
+console.log("map.has('toString')：", m.has('toString'));
+
+console.log('⑤ 顺序：Object 整数键排前，Map 插入序');
+console.log('Object.keys：', Object.keys({ b: 1, 2: 'x', a: 1 }));
+console.log('Map keys：', [...new Map([['b', 1], [2, 'x'], ['a', 1]]).keys()]);
+
+console.log('⑥ 互转');
+const obj = { a: 1 };
+console.log('Object → Map：', new Map(Object.entries(obj)));
+console.log('Map → Object：', Object.fromEntries(new Map([['a', 1]])));`}
+/>
+
+### 4. 高频追问
+
+**「Map 能直接 JSON.stringify 吗？」** 不能，`JSON.stringify(map)` 只得到 `{}`——JSON 只认 Object 的字符串键。先 `Object.fromEntries(map)` 转 Object 再序列化；反方向 `new Map(Object.entries(obj))`。这也是「与后端交互的载荷用 Object」的根本原因。
+
+**「Map 怎么遍历？」** `for (const [k, v] of map)`，或 `map.forEach((v, k) => ...)`（注意 forEach 参数是**值在前**，与数组回调一致）；`keys() / values() / entries()` 拿迭代器。
+
+**「WeakMap 呢？」** 键只能是对象、持弱引用（键对象只剩 WeakMap 引用时可被回收）、没有 size 不可遍历——[Set 和 Array 题](/javascript/23-set-vs-array)的加深理解讲过为什么不可遍历；经典用途是给对象挂私有数据和解循环引用（[值类型题](/javascript/11-value-vs-reference-types)的手写深拷贝）。
+
+**「既然 Map 这么强，Object 为什么不淘汰？」** 三样硬需求：**字面量语法**（`{ a: 1 }` 写起来最短）、**点语法与解构**、**JSON 互操作**。固定结构的「记录」用 Object 依然是最好的；Map 赢的是「表」的场景。
+
+### 5. 特性速查表
+
+| 特性 | Object | Map |
+| --- | --- | --- |
+| 键的类型 | 只能是 String 或 Symbol | 任意类型（对象、函数、`NaN` 等） |
+| 键的顺序 | 整数键按数值升序在前，其余按写入顺序 | 严格按插入顺序 |
+| 查找性能 | 接近 O(1)，为**形状稳定**的读写优化；频繁增删键会退化 | 接近 O(1)，为**频繁增删**优化 |
+| 迭代方式 | `for...in`、`Object.keys()`，**不能直接 `for...of`** | `forEach()`、`for...of`（自带迭代器） |
+| 获取键 | `Object.keys()` 只返回 String 键 | `map.keys()` 返回所有类型的键 |
+| 获取大小 | 手动算：`Object.keys(obj).length` | 直接读：`map.size` |
+| 转 JSON | ✅ `JSON.stringify()` 直接支持 | ❌ 需先 `Object.fromEntries(map)` |
+| 适用场景 | 结构化数据、JSON 载荷、点语法访问 | 动态键、非字符串键、频繁增删、要顺序保证 |
+
+## 加深理解
+
+### 为什么 Object 的键只能是字符串和 Symbol
+
+规范的属性键就只有这两种类型，其他值做键都会先经 **ToPropertyKey 转换**：数字转字符串、对象调 `toString` 取结果——所以 `obj[{ a: 1 }]` 与 `obj['[object Object]']` 是同一个键（两个不同的对象字面量做键会互相覆盖！）。Map 没有这层转换：键原样存进哈希表，对象键按引用定位。这也是「对象做键必须用 Map」的机制依据。
+
+### Object 的键顺序规则：「整数键升序在前」是什么意思
+
+**Object 枚举键时，整数键（`2`、`'10'`；负数、小数、`'02'` 不算）按数值升序排在最前，其余键按写入顺序跟在后面**；Map 严格按插入顺序。代码看规则：
+
+```js
+const o = {};
+o.b = 1; o[10] = 1; o[2] = 1; o.a = 1;
+Object.keys(o);   // ['2', '10', 'b', 'a']
+// 2 和 10 是整数键，抢到最前并按数值升序（不是字符串序——字符串序 '10' 会排在 '2' 前）
+// b、a 按写入顺序殿后
+```
+
+数字键无论多晚写入都排在非数字键之前——所以**不能假设 Object 的键按写入顺序枚举**。这条规则来自数组兼容：数组本质是整数键的对象，升序枚举才保证下标顺序。Map 没有这个历史包袱，严格插入序。
+
+### 引擎视角：形状稳定 vs 动态字典
+
+V8 给「形状稳定」的 Object 做**隐藏类**优化（[原型链题](/javascript/02-prototype-and-prototype-chain)讲过）：同一形状的对象共享属性布局，访问接近指针解引用。运行时频繁增删键会把对象退化成**字典模式**，优化失效——这正是 Map 的主场：Map 从设计上就是哈希字典，增删键不付「破坏形状」的代价。一句话：**Object 为读优化，Map 为增删优化**。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）

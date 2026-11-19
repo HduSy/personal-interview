@@ -4,56 +4,41 @@ import { Sandpack } from '../../components';
 
 ## 高频问答
 
-### 1. 原型是什么：属性查找的下一站
+### 1. 面试官：谈谈你对原型与原型链的理解？
 
-每个对象内部都有一个**原型**（规范中是 `[[Prototype]]` 内部槽），指向另一个对象或 `null`。访问属性时，对象自身找不到就去它的原型上找——原型就是**为其他对象提供共享属性的对象**：方法定义在构造函数的 `prototype` 上，一万个实例也只有一份方法，而不是每份都拷贝。
+**回答**：每个对象内部都有一个**原型**（规范里叫 `[[Prototype]]` 内部槽），指向另一个对象或 `null`。访问属性时对象自身找不到，就去它的原型上找——原型就是**为其他对象提供共享属性的对象**：方法定义在构造函数的 `prototype` 上，一万个实例共享一份方法。
 
-两个必区分的概念：
+两个必区分的概念：**`prototype` 只有函数才有**，指向「以它 new 出来的实例」的原型；**`__proto__` 每个对象都有**，指向自己的原型（标准读写用 `Object.getPrototypeOf`）。核心关系：**`实例.__proto__ === 构造函数.prototype`，`Fn.prototype.constructor === Fn`**。
 
-- **`prototype`**：**只有函数才有**的属性，指向「以它 new 出来的实例」的原型；
-- **`__proto__` / `Object.getPrototypeOf()`**：**每个对象都有**，指向自己的原型。`__proto__` 是历史访问器，标准读写用 `Object.getPrototypeOf / setPrototypeOf`。
+属性查找沿原型一层层向上：**自身 → 原型 → 原型的原型 → …… → `Object.prototype` → `null`** 终止，这条路径就是**原型链**。两条基本链要能当场画出来：普通实例 `cat → Animal.prototype → Object.prototype → null`；任何函数 `fn → Function.prototype → Object.prototype → null`（`Function.__proto__ === Function.prototype` 是自指特例）。
 
-核心关系一句背下来：**`实例.__proto__ === 构造函数.prototype`，`Fn.prototype.constructor === Fn`**。
+最关键的规则：**读取沿链，赋值不沿链**——赋值永远写自身，同名时形成遮蔽，原型不被修改。
 
-### 2. 原型链：查找规则与链的终点
+### 2. 面试官：哪些操作沿原型链，哪些只看自身？
 
-属性查找沿原型一层层向上：**自身 → 原型 → 原型的原型 → …… → `Object.prototype` → `null`**，到 `null` 终止。这条路径就是原型链。
-
-两条基本链要能当场画出来：
-
-- 普通实例：`cat → Animal.prototype → Object.prototype → null`；
-- 任何函数（函数也是对象）：`fn → Function.prototype → Object.prototype → null`，其中 `Function.__proto__ === Function.prototype` 是自指特例。
-
-最关键的规则：**读取沿链，赋值不沿链**——`obj.x = 1` 永远写在 `obj` 自身，原型上有同名属性时形成**遮蔽（shadowing）**，原型本身不被修改（除非原型上定义的是 setter）。
-
-### 3. 哪些操作沿链、哪些只看自身
+**回答**：读取沿链，写入不沿链，枚举类操作分两种：
 
 | 操作 | 范围 |
 | --- | --- |
 | `obj.x` 读取、`'x' in obj`、`for...in` | 沿原型链（for...in 只列可枚举） |
-| `obj.x = 1` 赋值 | 只写自身，遮蔽同名继承属性 |
+| `obj.x = 1` 赋值 | 只写自身（遮蔽同名继承属性） |
 | `Object.keys / values / entries` | 只看自身可枚举 |
 | `obj.hasOwnProperty('x')` | 只看自身（含不可枚举） |
 | `Object.getOwnPropertyNames` | 只看自身（含不可枚举） |
 
-`for...in` 会带出继承的可枚举属性，配 `hasOwnProperty` 过滤是标准搭配。
+`for...in` 会带出继承的可枚举属性，所以工程写法要配 `hasOwnProperty` 过滤。
 
-### 4. 与 class、继承、instanceof 的关系
+### 3. 面试官：原型链和 class、继承、instanceof 是什么关系？
 
-**class 是基于原型的语法糖**。`extends` 建立两根链，这常被追问：
+**回答**：**class 是基于原型的语法糖**。`extends` 建立两根链：`子类.prototype.__proto__ → 父类.prototype` 管实例方法继承，`子类.__proto__ → 父类` 管静态属性和 super 入口。**`instanceof` 就是原型链判断**：沿左边的原型链逐层找，看是否经过右边函数的 `prototype`。ES5 时代的标准继承方案是组合寄生：`Parent.call(this)` 继承实例属性 + `Object.create(Parent.prototype)` 作子类原型——完整六种演进在[继承题](/javascript/14-inheritance)。
 
-```text
-子类.prototype.__proto__ → 父类.prototype   // 实例方法继承
-子类.__proto__     → 父类                  // 静态属性继承、super 的入口
-```
+### 4. 面试官：new 一个函数的时候发生了什么？
 
-**`instanceof` 就是原型链判断**：沿左边的原型链逐层找，看是否经过右边函数的 `prototype`。
+**回答**：四步：①创建新对象；②把它的 `[[Prototype]]` 指向构造函数的 `prototype`；③以新对象为 `this` 执行构造函数；④构造函数显式返回对象则用该对象，否则返回新对象。
 
-**ES5 组合寄生继承**（class 之前的标准答案）：借用构造函数 `Parent.call(this)` 继承实例属性 + `Object.create(Parent.prototype)` 作子类原型继承方法。不用 `Child.prototype = new Parent()` 的原因：父类的实例属性会混进子类原型被所有实例共享，且无法在实例化子类时给父类传参。
+### 5. 面试官：能写代码验证一下吗？
 
-### 5. 控制台验证 + 高频追问
-
-打开 Console 看输出——三角关系、沿链查找、赋值遮蔽、手写 instanceof 一次验证：
+**回答**：可以，用 Console 验证三角关系、沿链查找、赋值遮蔽和手写 instanceof：
 
 <Sandpack
   template="static"
@@ -67,25 +52,20 @@ Animal.prototype.eat = function () { return this.name + ' 在吃'; };
 
 const cat = new Animal('猫');
 
-// ① 三角关系
 console.log('cat.__proto__ === Animal.prototype :', cat.__proto__ === Animal.prototype);
 console.log('Animal.prototype.constructor === Animal :', Animal.prototype.constructor === Animal);
 
-// ② 沿链查找：eat 不在实例上
-console.log("cat.hasOwnProperty('eat') :", cat.hasOwnProperty('eat'));  // false
-console.log("'eat' in cat :", 'eat' in cat);                            // true
+console.log("cat.hasOwnProperty('eat') :", cat.hasOwnProperty('eat'));
+console.log("'eat' in cat :", 'eat' in cat);
 console.log('cat.eat() :', cat.eat());
 
-// ③ 赋值不沿链：遮蔽原型，原型未动
 cat.eat = function () { return this.name + ' 挑食'; };
 console.log('cat.eat() :', cat.eat());
 console.log('原型上的 eat 还在 :', Animal.prototype.eat.call(cat));
 
-// ④ 链的顶端与函数的链
 console.log('Object.prototype.__proto__ === null :', Object.prototype.__proto__ === null);
 console.log('Animal 的原型是 Function.prototype :', Object.getPrototypeOf(Animal) === Function.prototype);
 
-// ⑤ 手写 instanceof：沿原型链逐层比对
 function myInstanceof(obj, Fn) {
   let proto = Object.getPrototypeOf(obj);
   while (proto) {
@@ -98,9 +78,9 @@ console.log('myInstanceof(cat, Animal) :', myInstanceof(cat, Animal));
 console.log('myInstanceof(cat, Object) :', myInstanceof(cat, Object));`}
 />
 
-**new 做了什么？** ①创建新对象 ②把它的 `[[Prototype]]` 指向构造函数的 `prototype` ③以新对象为 `this` 执行构造函数 ④构造函数显式返回对象则用该对象，否则返回新对象。
+### 6. 面试官：Object.create(null) 创建的对象是什么样的？
 
-**`Object.create(null)` 的对象什么样？** 原型直接是 `null`，没有任何继承方法（`toString`、`hasOwnProperty` 都没有），是纯净字典：键名不怕撞上继承属性，序列化、遍历都干净。
+**回答**：原型直接是 `null`，没有任何继承方法——`toString`、`hasOwnProperty` 都没有，是纯净字典：键名不怕撞上继承属性，序列化、遍历都干净。
 
 ## 加深理解
 

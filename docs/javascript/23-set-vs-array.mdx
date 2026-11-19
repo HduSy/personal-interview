@@ -1,0 +1,91 @@
+import { Sandpack } from '../../components';
+
+# 23. Set 和 Array 有什么区别？
+
+## 高频问答
+
+### 1. 先给答案：定位一句话 + 五条区别
+
+**Array 是有序、可重复的索引集合；Set 是无索引、不可重复的值集合**。口述五条：
+
+**一、重复性**。Array 允许重复元素；Set **自动去重**——`add` 一个已存在的值是空操作。
+
+**二、下标与长度**。Array 有下标（`a[0]`）和 `length`；Set **没有下标**（`s[0]` 是 `undefined`），只有 `size`。Set 的遍历顺序按**插入顺序**（规范保证），但你不能按下标跳着访问。
+
+**三、判等语义**。Set 的 `has` 用 **SameValueZero**：`NaN` 能查到、`+0 / -0` 算同一个值（三种相等的对照在[相等比较题](/javascript/09-loose-vs-strict-equality)）；对象永远按引用判——两个内容相同的 `{}` 不是同一个值。
+
+**四、性能**。Set 的 `has / add / delete` 平均 **O(1)**（哈希表）；Array 的 `includes / indexOf` 是 **O(n)** 扫描。「频繁判断『在不在』」的场景两者是数量级的差距。
+
+**五、方法与互转**。Array 方法丰富（`map / filter / sort` 全家桶，[数组 API 题](/javascript/10-array-apis)）；Set 只有 `add / delete / has / forEach` 和集合运算（ES2025 的 `union / intersection / difference` 等，[ES 新特性题](/javascript/07-es-new-features)列过）。互转一行：`[...set]` 与 `new Set(arr)`。
+
+### 2. Set 的主业：去重
+
+```js
+const uniq = [...new Set([1, 2, 2, 3])];   // [1, 2, 3] —— 标准去重就这一行
+```
+
+两个边界要知道：**对象去重不生效**（按引用判等，两个 `{ id: 1 }` 是不同的值——要按字段去重得转成 `Map` 以字段值为键）；去重出现在 Set 之前的老方案是 `reduce` / `filter + indexOf`（O(n²)，[数组 API 题](/javascript/10-array-apis)的 reduce 惯用法里有），现在只剩教学价值。
+
+### 3. 选型口诀
+
+**关心顺序、下标、要变换加工 → Array；关心唯一、频繁查存在、集合运算 → Set**。典型场景对照：列表渲染、排序分页用 Array；标签集合、已选 id、黑白名单、交并差用 Set。
+
+### 4. 控制台验证
+
+打开 Console：去重、无下标、SameValueZero、性能对比四组：
+
+<Sandpack
+  template="static"
+  showConsole
+  height={200}
+  html={`<p style="font-family: system-ui; padding: 12px; color: #666; font-size: 13px;">
+  打开下方 Console 查看验证输出
+</p>`}
+  js={`console.log('① 自动去重，保留插入顺序');
+const s = new Set([3, 1, 2, 1, 3]);
+console.log([...s], '| size =', s.size);
+
+console.log('② 没有下标');
+console.log('s[0] =', s[0], '| s.length =', s.length);
+
+console.log('③ SameValueZero 判等');
+console.log('has(NaN)：', new Set([NaN]).has(NaN));
+console.log('两个空对象：', new Set([{}]).has({}));
+
+console.log('④ 性能：查存在，O(1) vs O(n)');
+const big = Array.from({ length: 50000 }, (_, i) => i);
+const bigSet = new Set(big);
+let t = performance.now();
+for (let i = 0; i < 200; i++) big.includes(49999);
+const arrTime = performance.now() - t;
+t = performance.now();
+for (let i = 0; i < 200; i++) bigSet.has(49999);
+const setTime = performance.now() - t;
+console.log('includes 200 次：', arrTime.toFixed(1), 'ms | has 200 次：', setTime.toFixed(2), 'ms');`}
+/>
+
+### 5. 高频追问
+
+**「Set 能用 map / filter 吗？」** 不能直接用（原型上没有），两条路：转数组 `[...set].map(...)`；或用迭代器助手 `set.values().map(...).toArray()`（ES2025，[ES 新特性题](/javascript/07-es-new-features)）——Set 是可迭代对象，`for...of` 与展开都吃。
+
+**「WeakSet 是什么？」** 只收对象、持弱引用（不阻止 GC 回收）、没有 size 也不可遍历——用来给对象打「处理过」标记而不延长其寿命。弱引用与不可遍历的原因在加深理解里。
+
+**「Map 和 Set 什么关系？」** 结构同源：Map 是「键值对表」，Set 相当于「只有键、值闲置」的表——所以 Map 的键天然去重，判等也是 SameValueZero（[相等比较题](/javascript/09-loose-vs-strict-equality)讲过 Map 的键语义）。
+
+## 加深理解
+
+### 为什么 Set.has 是 O(1) 而 includes 是 O(n)
+
+Set 内部按哈希表组织：存入时对值算哈希定位桶，查存在时同样算哈希直达——与元素总量无关。Array 的内存布局是按下标连续存放，**按下标找是 O(1)、按值找只能从头扫到尾**——它快在「位置」，不快在「值」。这也是「需要按值查就上 Set / Map」的性能依据，选型时不用记复杂度数字，记这句就够。
+
+### 「无序」和「插入顺序」矛盾吗
+
+不矛盾。「Set 无序」说的是**没有索引语义**——不能 `s[2]`、没有第几个的概念；而规范同时规定了**迭代顺序按插入顺序**，保证遍历结果可预测。两者一个在说「怎么访问」，一个在说「怎么遍历」，不冲突。顺带：往 Set 里重复 add 已有的值，位置不变（更新的是「存在」，不是「搬位置」）。
+
+### WeakSet 为什么不可遍历、没有 size
+
+弱引用不阻止垃圾回收：某个对象只剩 WeakSet 引用它时，随时可能被回收掉。如果允许遍历或读 size，就必须「固定某一刻的全量成员」——而下一刻可能就少了，语义无从保证。所以 WeakSet 只提供「以对象为键的单点查询」（`has / add / delete`），这是「弱引用 + 可预测 API」的折中，WeakMap 同理（手写深拷贝用它解循环引用，[值类型题](/javascript/11-value-vs-reference-types)讲过）。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）
