@@ -1,0 +1,152 @@
+import { Sandpack } from '../../components';
+
+# 27. JS 如何捕获异常？有几种方式？
+
+## 高频问答
+
+### 1. 面试官：JS 如何捕获异常？有几种方式？
+
+**回答**：分**局部捕获**与**全局兜底**两层，共五种：
+
+1. **try...catch...finally**：捕获同步代码的运行时错误，finally 无论出不出错都执行；
+2. **Promise 的 `.catch()`**：接住 Promise 链上的 rejection——rejection 会沿链自动向后传，直到最近的 .catch；
+3. **async/await 配 try...catch**：await 一个 rejected 的 Promise 会在 await 处抛出错误，用 try...catch 接住（[async/await 题](/javascript/21-async-await)）；
+4. **全局 error 事件**：`window.addEventListener('error', ...)` 兜住所有漏网的 JS 运行错误和资源加载错误；
+5. **unhandledrejection 事件**：兜住没有任何 .catch 处理的 Promise rejection；Node 里对应 `process.on('uncaughtException')`（同步）和 `process.on('unhandledRejection')`（异步）。
+
+分工：**能在局部捕获的放在局部**——离错误近、上下文全；**全局兜底只负责接漏网的**，并接监控上报。
+
+### 2. 面试官：try...catch 能捕获哪些，捕获不到哪些？
+
+**回答**：**能捕获**：同步运行时错误（TypeError、ReferenceError）、`await` 的 rejection、JSON.parse 这类在运行时才执行的解析错误。**不能捕获**三处：
+
+- **异步回调里的错误**：setTimeout、事件回调执行时 try 块早已结束，错误只能在异步入口处自己捕，或靠全局兜底；
+- **脚本级语法错误**：解析阶段就报错，代码根本没执行（new Function / eval 里的语法错误是运行时才解析，接得住）；
+- **不 await 的 Promise rejection**：不会抛进同步的 try。
+
+另外 throw 要抛 **Error 对象**而不是字符串——Error 自带 stack 堆栈定位，字符串没有。沙箱验证：
+
+<Sandpack
+  template="static"
+  showConsole
+  height={200}
+  html={`<p style="font-family: system-ui; padding: 12px; color: #666; font-size: 13px;">
+  打开下方 Console 查看验证输出（红色 Uncaught TypeError 是故意漏出去的）
+</p>`}
+  js={`console.log('① 同步错误：try 接得住');
+try {
+  null.foo;
+} catch (e) {
+  console.log('catch 到：', e.constructor.name + ':', e.message);
+}
+
+console.log('② setTimeout 回调：try 接不住');
+try {
+  setTimeout(() => { null.foo; }, 0);  // try 块此刻就结束了，回调里的错误漏出去
+} catch (e) {
+  console.log('这行永远不会执行');
+}
+
+console.log('③ await 的 rejection：try 接得住');
+(async () => {
+  try {
+    await Promise.reject(new Error('网络失败'));
+  } catch (e) {
+    console.log('catch 到：', e.message);
+  }
+})();
+
+console.log('④ 全局兜底 + 资源错误，一个监听全接');
+window.addEventListener('error', e => {
+  if (e.target !== window) {
+    console.log('[error] 资源加载失败：', (e.target.src || '').split('/').pop());
+  } else {
+    console.log('[error] JS 错误：', e.message);
+  }
+}, true);
+window.addEventListener('unhandledrejection', e => console.log('[unhandledrejection]', e.reason.message));
+
+setTimeout(() => { null.foo; }, 30);           // ② 漏出的错误被全局接住
+Promise.reject(new Error('没人接的 reject'));  // 被 unhandledrejection 接住
+const img = document.createElement('img');
+img.src = 'not-exist.png';                      // 资源加载失败被捕获阶段接住
+document.body.appendChild(img);`}
+/>
+
+② 漏出去的那条错误，最后被 ④ 的全局监听接住——控制台里红色的 Uncaught TypeError 仍然会打（监听不阻止默认日志），那就是「try 接不住异步回调」的直接证据。
+
+### 3. 面试官：Promise 的错误怎么捕获？.catch 和 then 的第二个参数有什么区别？
+
+**回答**：两种写法：挂 `.catch(fn)`，或 `then(onFulfilled, onRejected)` 传第二个参数。差异是**捕获范围**：
+
+- then 的第二个参数只接「传到这一步的 rejection」，**接不住同一步 onFulfilled 里新抛的错误**；
+- `.catch` 挂在链尾时接住**整条链**上任何一步的错误，且接住后链条恢复 fulfilled，后面还能继续 .then（[Promise 状态题](/javascript/20-promise-states)）。
+
+```js
+Promise.resolve()
+  .then(() => { throw new Error('A'); })
+  .then(null, e => console.log('接住 A：', e.message))   // 接住上一步传来的
+  .then(() => { throw new Error('B'); }, e => console.log('接不住 B'))
+  .catch(e => console.log('链尾接住 B：', e.message));    // 新抛的沿链漏到链尾
+```
+
+一个高频陷阱：**fetch 的 404 / 500 不会 reject**——只有断网等网络层失败才 reject，HTTP 错误要自己检查 `res.ok` 再 throw，否则 .catch 接不到它。
+
+### 4. 面试官：图片、脚本这类资源加载失败怎么捕获？
+
+**回答**：资源加载失败的 error 事件**不冒泡**，window.onerror 接不到；在 window 上用**捕获阶段**监听 error 事件，并在回调里区分事件目标：
+
+```js
+window.addEventListener('error', (e) => {
+  if (e.target !== window) {                       // 目标是元素：资源加载错误
+    console.log('资源加载失败：', e.target.src || e.target.href);
+    return;
+  }
+  console.log('JS 运行错误：', e.message);          // 目标是 window：运行时错误
+}, true);                                          // true：捕获阶段
+```
+
+一次监听同时接两类错误。单个元素也可以直接挂 onerror 属性做单点处理。
+
+### 5. 面试官：unhandledrejection 是什么？
+
+**回答**：兜底事件。一个 Promise rejected 且整条链上没有任何 .catch / then 第二参数处理，浏览器就向 window 派发 unhandledrejection，`event.reason` 就是拒绝值——上线必挂，防止漏网的 rejection 无声消失。Node 对应 `process.on('unhandledRejection')`；`process.on('uncaughtException')` 兜同步错误，但兜住只代表进程不退出，进程状态可能已损坏，惯例是上报后清理并主动退出。
+
+### 6. 面试官：生产环境的错误监控是怎么做的？
+
+**回答**：三层收集，一条上报通道：
+
+- **全局层**：error（捕获阶段，含资源错误）+ unhandledrejection；
+- **框架层**：React 用 ErrorBoundary（`getDerivedStateFromError` 渲染降级 UI、`componentDidCatch` 上报），Vue 用 `app.config.errorHandler`；React 的 ErrorBoundary 接不住事件回调和异步代码里的错误，那些仍走全局兜底；
+- **上报**：`navigator.sendBeacon(url, data)`（页面卸载也能发出）、`fetch(url, { keepalive: true })`、或 `new Image()` 拼 query 打 gif 点；
+- **注意**：跨域脚本的错误会被浏览器脱敏成 "Script error."，拿不到堆栈——script 加 `crossorigin` 属性、脚本服务端配 CORS 响应头后才能拿到完整信息。
+
+### 7. 面试官：能总结一下吗？
+
+**回答**：用一张速查表收尾：
+
+| 方式 | 捕获范围 | 备注 |
+| --- | --- | --- |
+| try...catch...finally | 同步错误、await 的 rejection | 异步回调、脚本级语法错误接不住 |
+| .catch / then 第二参数 | Promise 链的 rejection | 链尾一个 .catch 管整条链 |
+| 全局 error 事件（捕获阶段） | 漏网的 JS 错误、资源加载错误 | 资源错误不冒泡，必须捕获阶段监听 |
+| unhandledrejection | 未处理的 Promise rejection | event.reason 是拒绝值 |
+| uncaughtException / unhandledRejection（Node） | Node 进程级兜底 | 兜住后上报、清理、主动退出 |
+
+## 加深理解
+
+### 语法错误为什么 try...catch 接不住
+
+脚本执行前先整体解析成抽象语法树，语法错误发生在解析阶段——此刻 try 还没「运行」的概念。把解析推迟到运行时的写法（new Function('...')、eval、JSON.parse）产生的语法错误就成了运行时错误，try 就能接住。
+
+### .catch 之后链是什么状态
+
+catch 的回调正常返回，链条恢复 fulfilled，后面的 .then 正常走——错误被消费掉了；回调里再 throw 或返回 rejected Promise，链条重新变成 rejected。所以 .catch 放在链中间可以做「重试 / 给默认值」的恢复逻辑。finally 不管成败都执行，回调收不到参数、不改变链的状态（回调里自己 throw 除外）。状态迁移的完整规则在[Promise 状态题](/javascript/20-promise-states)。
+
+### 「Script error.」是什么
+
+浏览器安全策略：错误发生在与页面不同源的脚本里时，全局 error 只能拿到 "Script error."，拿不到具体 message 和堆栈——防止页面探测跨域脚本内部信息。解法：script 标签加 `crossorigin="anonymous"`，脚本服务端返回 Access-Control-Allow-Origin 响应头，之后就能拿到完整错误。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）

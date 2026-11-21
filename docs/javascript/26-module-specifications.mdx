@@ -1,0 +1,160 @@
+import { Sandpack } from '../../components';
+
+# 26. JS 模块化规范有哪些？
+
+## 高频问答
+
+### 1. 面试官：JS 模块化规范有哪些？
+
+**回答**：**两大现行主流是 CommonJS 和 ES Module（ESM）**；另外三种——AMD、CMD、UMD——是浏览器还没有模块方案的年代出现的过渡产物：
+
+- **CommonJS**：Node.js 采用的规范。`require()` 导入、`module.exports` 导出，**同步加载**；模块在第一次被 require 时执行，结果缓存，后续 require 直接拿缓存。
+- **AMD**：浏览器端异步方案，代表实现 RequireJS。`define(依赖数组, 工厂函数)` 声明模块，依赖全部加载并执行完才运行工厂函数。
+- **CMD**：SeaJS 推动的浏览器端异步规范，语法上把 require 写在使用处。
+- **UMD**：不是新规范，是一段环境探测代码，让同一份库文件在 CommonJS、AMD、`<script>` 全局变量三种环境下都能用。
+- **ESM**：ES2015 定稿的语言级标准。`import` / `export` 静态声明，编译期确定依赖关系，浏览器与 Node 都原生支持。
+
+ES2015 之前 JS 语言本身没有模块语法，只能靠 IIFE 加命名空间手动隔离作用域——这些规范都是为补这个缺口出现的，最终由 ESM 统一。
+
+### 2. 面试官：CommonJS 和 ESM 有什么区别？
+
+**回答**：五个维度：
+
+**一、加载时机**：CommonJS 在**运行时**加载，ESM 在**编译时**静态分析。require 是普通函数调用，可以写进 if、路径可以拼接；import 必须写在模块顶层、路径必须是字符串字面量，代码执行前引擎就建好整张依赖图。
+
+**二、导出语义**：CommonJS 导出**值的拷贝**，ESM 导出**值的绑定**——模块内变量改了，前者的导入方拿到的还是旧值，后者的导入方看得到新值（下一问展开）。
+
+**三、同步与异步**：require 是同步的，加载完才执行下一行；ESM 的模块加载是异步的，但静态 import 的模块保证在当前模块执行前全部就位。
+
+**四、顶层 this**：CommonJS 模块顶层 this 是 module.exports；ESM 顶层 this 是 undefined。
+
+**五、工程能力**：ESM 的静态结构支持 **tree-shaking**（打包时删掉没被用到的导出）和顶层 await（ES2022）；CommonJS 两者都不支持。
+
+### 3. 面试官：「值的拷贝」和「值的绑定」具体是什么意思？
+
+**回答**：同一场景在两种规范下结果不同——模块里有个变量 `count`，导出后 100ms 改成 1，导入方 200ms 再读：
+
+```js
+// counter.js —— CommonJS
+let count = 0;
+setTimeout(() => { count = 1; }, 100);
+module.exports = { count };  // 导出这一刻，count 的 0 被拷贝出去
+
+// main.js
+const { count } = require('./counter.js');
+setTimeout(() => { console.log(count); }, 200);  // 0：模块内改成了 1，这边还是旧快照
+```
+
+```js
+// counter.js —— ESM
+export let count = 0;
+setTimeout(() => { count = 1; }, 100);
+
+// main.js
+import { count } from './counter.js';
+setTimeout(() => { console.log(count); }, 200);  // 1：import 建立的是绑定，跟着模块内变
+```
+
+根源：**require 返回导出对象时，变量当时的值已经拷贝出去**，模块内后续修改不会写回；**import 建立的是指向原变量的绑定**，每次读取都取模块内的当前值。CommonJS 想让导入方拿到新值，只能导出取值函数 `getCount()`，或者在模块里直接修改导出对象的属性（对象引用是共享的）。沙箱验证（绑定语义用 getter 模拟）：
+
+<Sandpack
+  template="static"
+  showConsole
+  height={200}
+  html={`<p style="font-family: system-ui; padding: 12px; color: #666; font-size: 13px;">
+  打开下方 Console 查看验证输出
+</p>`}
+  js={`console.log('① CommonJS：导出值的拷贝');
+let cjsCount = 0;
+const cjsExports = { count: cjsCount };   // 相当于 require 时刻的拷贝快照
+setTimeout(() => { cjsCount = 1; }, 50);  // 模块内部后来改了变量
+setTimeout(() => {
+  console.log('导入方读到的 count =', cjsExports.count);  // 0：变量改了，拷贝不变
+}, 150);
+
+console.log('② ESM：导出值的绑定（getter 模拟绑定语义）');
+let esmCount = 0;
+const esmImport = { get count() { return esmCount; } };  // 每次读取都取当前值
+setTimeout(() => { esmCount = 1; }, 50);
+setTimeout(() => {
+  console.log('导入方读到的 count =', esmImport.count);  // 1：跟着模块内变
+}, 150);`}
+/>
+
+### 4. 面试官：AMD 和 CMD 有什么区别？
+
+**回答**：两者的差异在**依赖声明的位置和执行时机**：
+
+- **AMD 依赖前置、提前执行**：所有依赖在 define 的数组里列全，RequireJS 把它们**全部下载并执行完**才运行工厂函数——没被用到的依赖也执行。
+- **CMD 依赖就近、延迟执行**：require 写在使用处，SeaJS 分析出依赖后**只下载不执行**，工厂函数运行到某个 require 的那一刻才执行那个模块。
+
+```js
+// AMD（RequireJS）：依赖前置
+define(['jquery', './validator'], function ($, validator) {
+  // 进工厂函数前，两个依赖都已执行完
+});
+
+// CMD（SeaJS）：依赖就近
+define(function (require, exports, module) {
+  const $ = require('jquery');            // 执行到这行才执行 jquery
+  const validator = require('./validator');
+});
+```
+
+### 5. 面试官：UMD 是怎么做到一份代码跑多种环境的？
+
+**回答**：靠加载时依次探测环境，把库挂到当前环境认的导出通道上：
+
+```js
+(function (root, factory) {
+  if (typeof exports === 'object') {
+    module.exports = factory();              // CommonJS 环境
+  } else if (typeof define === 'function' && define.amd) {
+    define(factory);                         // AMD 环境
+  } else {
+    root.MyLib = factory();                  // <script> 引入：挂全局变量
+  }
+}(this, function () {
+  return { hello() { return 'hi'; } };       // 库的本体
+}));
+```
+
+早期 jQuery、lodash 发布的产物就是这种格式。现在的库直接发布 ESM 版本（另附一份 CommonJS 版本给老工具链），UMD 只在需要支持 `<script>` 标签直接引入时才打包。
+
+### 6. 面试官：现在还需要 AMD / CMD 吗？
+
+**回答**：不需要，两者可以当作历史方案。现状三条：
+
+- **浏览器**：2017 年起主流浏览器原生支持 `<script type="module">`——自带 defer 语义、模块作用域天然隔离，不再需要加载器。
+- **构建工具**：Webpack / Rollup / Vite 都以 ESM 为基础，tree-shaking 依赖它的静态结构。
+- **Node**：`package.json` 写 `"type": "module"`（或用 `.mjs` 后缀）启用 ESM；ESM 里可以直接 import CommonJS 包，`module.exports` 整体作为默认导出；反过来 require ES 模块，Node 22.12 起默认支持（此前需要实验 flag，现已稳定）。动态 `import()` 在两种体系里都能用（[ES 新特性题](/javascript/07-es-new-features)的 ES2020 清单）。
+
+### 7. 面试官：能总结一下吗？
+
+**回答**：用一张速查表收尾：
+
+| 规范 | 语法 | 加载与执行 | 导出语义 | 现状 |
+| --- | --- | --- | --- | --- |
+| CommonJS | `require` / `module.exports` | 同步，运行时加载 | 值的拷贝 | Node 默认体系之一，大量存量代码仍在用 |
+| AMD | `define(依赖数组, 工厂函数)` | 异步，依赖前置、提前执行 | —— | RequireJS，历史方案 |
+| CMD | `define(工厂函数)`，就近 require | 异步，依赖就近、延迟执行 | —— | SeaJS，历史方案 |
+| UMD | 环境探测垫片 | 跟随宿主环境 | 跟随宿主环境 | 库的兼容发布格式 |
+| ESM | `import` / `export` | 异步，编译时静态分析 | 值的绑定 | 语言标准，唯一推荐 |
+
+## 加深理解
+
+### 循环依赖时两边各会发生什么
+
+CommonJS：require 的缓存是「先登记、再执行」。a require b、b 又 require a 时，b 拿到的是 a **执行到一半的 exports**——已赋值的属性在、没执行到的属性缺，不报错但数据可能不完整。ESM：执行任何模块体之前先完成整张图的实例化，所有导出绑定先建好——所以循环引用时 import 的名字一定找得到：函数声明因提升可直接调用；`var` 变量在赋值前是 undefined；`let` 变量在赋值前访问报 ReferenceError（暂时性死区）。
+
+### 为什么 tree-shaking 只认 ESM
+
+require 是运行时的普通函数调用：路径可以拼接、调用可以藏在条件分支里，打包器在执行前无法确定「谁用了什么」，只能把整个模块全部打进来。import / export 是语法层声明：依赖图在执行前完整确定，打包器可以逐个导出分析「有没有被 import」，没被用到的导出不进产物。模块顶层的副作用代码（比如 `window.x = 1`）会让删除变保守，`package.json` 里写 `"sideEffects": false` 是在告诉打包器「我的模块没有副作用，放心删」。
+
+### exports 为什么不能重新赋值
+
+Node 给每个模块注入的初始代码相当于 `const exports = module.exports`——exports 只是 module.exports 的引用简写。`exports.a = 1` 改的是同一个对象，require 方拿得到；`exports = { a: 1 }` 只是让 exports 指向新对象，module.exports 还是原来的空对象——require 方拿到空对象，导出全部丢失。要整体替换导出对象，必须写 `module.exports = { a: 1 }`。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）
