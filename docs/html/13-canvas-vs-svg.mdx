@@ -4,13 +4,13 @@ import { Mermaid } from '../../components';
 
 ## 高频问答
 
-### 1. 本质区别：位图与矢量
+### 1. 面试官：说说 Canvas 和 SVG 的区别？
+
+**回答**：本质区别一条：**Canvas 只保留像素，SVG 保留结构**——所有差异都从这一条推出来。
 
 `<canvas>` 是位图画布，本身只有像素缓冲区，图形全部靠 JS 调用绘图 API 画上去，画完后浏览器只保留像素，不保留图形对象。`<svg>` 是基于 XML 的矢量容器，每个形状都是真实 DOM 节点（`<circle>`、`<path>`、`<rect>`），浏览器维护整棵图形树。
 
-所有差异都来自这一条：**Canvas 只保留像素，SVG 保留结构**。
-
-### 2. 渲染模型：立即模式与保留模式
+用渲染模型的说法：Canvas 是**立即模式**，SVG 是**保留模式**：
 
 | | Canvas（立即模式 Immediate Mode） | SVG（保留模式 Retained Mode） |
 | --- | --- | --- |
@@ -18,30 +18,25 @@ import { Mermaid } from '../../components';
 | **重绘方式** | 改一个图形要**清空整块画布重新画**，或自行实现局部重绘 | 改哪个元素的属性，浏览器自动做增量重渲染 |
 | **状态管理** | 开发者自己维护（`save()` / `restore()` 只能救回绘图状态，救不回图形） | 浏览器维护，开发者操作 DOM 即可 |
 
-Canvas 的图形对象与状态都由开发者维护；SVG 的图形是浏览器实实在在的对象。
+一句话收束：Canvas 的图形对象与状态都由开发者维护；SVG 的图形是浏览器实实在在的对象。
 
-### 3. 全面对比
+### 2. 面试官：两者在交互、性能、内存上怎么比？
 
-| 维度 | Canvas | SVG |
-| --- | --- | --- |
-| **图形类型** | 位图（栅格） | 矢量 |
-| **缩放 / 高 DPI** | 放大会模糊；需手动按 `devicePixelRatio` 放大缓冲区并缩放绘图上下文 | 无损缩放，任意倍率都清晰 |
-| **元素级交互** | ❌ 没有事件，点击「某个圆」需要自己写命中检测（hit test） | ✅ 直接在 `<circle>` 上绑 `click` |
-| **样式控制** | 只能用 canvas 的绘图 API 设置颜色/线宽；CSS 只能作用于整个元素（透明度、filter、transform） | ✅ CSS 直接控制填充、描边、hover、过渡动画，`currentColor` 可继承主题色 |
-| **动画** | JS 逐帧清空重绘（`requestAnimationFrame`），完全可控 | CSS 动画 / JS 改属性 / SMIL；元素一多会卡 |
-| **性能拐点** | 图形**数量越多越有优势**（上万粒子仍流畅），适合高频重绘 | 元素数量到**千级**后 DOM 与样式计算开销明显，上万几乎不可行 |
-| **内存** | 与画布像素尺寸成正比（大画布很吃内存，且有最大尺寸限制） | 与节点数量和路径复杂度成正比 |
-| **可访问性** | ❌ 默认对读屏软件不可见，需要 fallback 内容 + ARIA | ✅ 文本是可读文本，可被选中、搜索、朗读 |
-| **SEO** | 内容不被索引 | 文本内容可被索引 |
-| **文本** | 能画文字，但不可选中、不可搜索、不可复制 | 真实文本，可选中可搜索 |
-| **导出图片** | 简单：`toDataURL()` / `toBlob()` | 需序列化为字符串再转成图片，或走服务端 |
-| **像素级操作** | ✅ `getImageData` / `putImageData`，做图像处理、滤镜、识别 | ❌ 无法直接操作像素 |
-| **依赖** | 必须有 JS，禁用 JS 时一片空白 | 纯声明式，无 JS 也能渲染（静态部分） |
-| **文件体积** | 与像素尺寸无关，代码量小 | 与图形复杂度成正比，简单图标极小，复杂图形很大 |
+**回答**：交互和导出是 SVG 方便，图形数量大了是 Canvas 顶得住：
 
-### 4. 关键代码
+- **元素级交互**：Canvas 没有事件，点击某个图形需自己做命中检测（几何判定、离屏颜色缓冲、空间索引）；SVG 可直接在元素上绑事件。
+- **性能拐点**：Canvas 图形越多越有优势；SVG 到千级节点后 DOM 与样式计算开销明显。SVG 卡顿时减少 DOM（路径合并、`<use>` 复用、可视区虚拟化），或换 Canvas。
+- **内存**：Canvas 与画布像素尺寸成正比，大画布吃内存且有最大尺寸限制；SVG 与节点数和路径复杂度成正比。
+- **导出**：Canvas 用 `toDataURL()` 或 `toBlob()`；SVG 需序列化后转图片或走服务端。
 
-#### Canvas：按 DPR 放大缓冲区
+### 3. 面试官：Canvas 在高分屏上发模糊，怎么解决？
+
+**回答**：模糊的根源是搞混了 canvas 的两套尺寸——`width`/`height` **属性**决定像素缓冲区，CSS 决定显示尺寸。属性不写默认 300×150，CSS 再拉大就会拉伸像素导致模糊；高分屏必须按 DPR 放大缓冲区。
+
+| 尺寸 | 由谁决定 | 单位 | 含义 |
+| --- | --- | --- | --- |
+| **像素缓冲区大小** | `canvas.width` / `canvas.height` **属性** | 设备像素 | 真正存像素的内存有多大 |
+| **显示尺寸** | CSS 的 `width` / `height` | CSS 像素 | 在页面上占多大地方 |
 
 ```html
 <canvas id="chart" style="width: 600px; height: 400px;"></canvas>
@@ -60,66 +55,6 @@ const ctx = canvas.getContext('2d');
 ctx.scale(dpr, dpr);   // 之后按 CSS 像素坐标绘制即可，自动映射到高分辨率缓冲区
 ```
 
-`width`/`height` **属性**决定像素缓冲区大小，CSS 决定显示尺寸。属性不写默认 300×150，CSS 再拉大就会拉伸像素导致模糊；高分屏必须按 DPR 放大缓冲区。
-
-#### SVG：图形就是 DOM
-
-```html
-<svg viewBox="0 0 100 100" width="200" height="200" role="img" aria-label="进度环">
-  <circle cx="50" cy="50" r="40" fill="none" stroke="#e5e7eb" stroke-width="8" />
-  <circle class="progress" cx="50" cy="50" r="40" fill="none" stroke="#3b82f6"
-          stroke-width="8" stroke-dasharray="251" stroke-dashoffset="63"
-          transform="rotate(-90 50 50)" />
-</svg>
-```
-
-```css
-/* 直接用 CSS 控制图形，还能过渡动画 */
-.progress { transition: stroke-dashoffset .3s ease; }
-svg:hover .progress { stroke: #2563eb; }
-```
-
-`viewBox` 定义内部坐标系，`width`/`height` 决定显示尺寸，两者分离，因此可任意缩放而不失真。
-
-### 5. 怎么选
-
-<Mermaid chart={`
-flowchart TD
-    Q1{"图形数量是否极多<br/>或需要逐帧重绘？"}
-    Q1 -- "是" --> C["Canvas<br/>必要时上 WebGL / OffscreenCanvas"]
-    Q1 -- "否" --> Q2{"是否需要元素级交互<br/>样式 / 可访问文本？"}
-    Q2 -- "是" --> S["SVG"]
-    Q2 -- "否" --> Q3{"是否需要无损缩放<br/>或静态无 JS 渲染？"}
-    Q3 -- "是" --> S
-    Q3 -- "否" --> C
-`} />
-
-- **选 Canvas**：游戏、粒子与物理效果、上万点位可视化、图像处理、视频帧、地图瓦片、白板。
-- **选 SVG**：图标、Logo、可缩放插图、hover/CSS 动画、节点数可控的交互图表、需要读屏或 SEO 的图形。
-- **混合方案**：Canvas 画海量静态层，DOM 或 SVG 叠交互层；ECharts 等可按数据量切换渲染器。
-
-### 6. 交互与性能边界
-
-- **元素级交互**：Canvas 没有事件，点击某个图形需自己做命中检测（几何判定、离屏颜色缓冲、空间索引）；SVG 可直接在元素上绑事件。
-- **性能拐点**：Canvas 图形越多越有优势；SVG 到千级节点后 DOM 与样式计算开销明显。SVG 卡顿时减少 DOM（路径合并、`<use>` 复用、可视区虚拟化），或换 Canvas。
-- **内存**：Canvas 与画布像素尺寸成正比，大画布吃内存且有最大尺寸限制；SVG 与节点数和路径复杂度成正比。
-- **导出**：Canvas 用 `toDataURL()` 或 `toBlob()`；SVG 需序列化后转图片或走服务端。
-
-### 7. 可访问性与安全
-
-- **可访问性**：Canvas 默认对读屏不可见，需在标签内放 fallback，外层加 `role="img"` 与 `aria-label`，并另提供等价数据表或文字；复杂可视化给「查看数据」替代视图。SVG 文本是真实文本，可选择、搜索、朗读，也可被索引。
-- **导出安全**：画布被跨域图片污染后 `toDataURL` 会抛 `SecurityError`，图片服务需支持 CORS 且设置 `img.crossOrigin = 'anonymous'`。
-- **内联 SVG 安全**：内联 SVG 中的 `<script>` 和事件属性会执行，嵌入用户上传的 SVG 前必须清洗；作为 `<img src>` 引入时脚本不执行。
-
-### 8. 两套尺寸与 `ctx.scale`
-
-`<canvas>` 有两个尺寸：
-
-| 尺寸 | 由谁决定 | 单位 | 含义 |
-| --- | --- | --- | --- |
-| **像素缓冲区大小** | `canvas.width` / `canvas.height` **属性** | 设备像素 | 真正存像素的内存有多大 |
-| **显示尺寸** | CSS 的 `width` / `height` | CSS 像素 | 在页面上占多大地方 |
-
 DPR = 2 时，先把缓冲区设为 CSS 尺寸的 2 倍；此时缓冲区 1 个单位只占 0.5 个 CSS 像素，按 CSS 坐标 `fillRect(0, 0, 100, 100)` 会缩小一半。`ctx.scale(dpr, dpr)` 把变换矩阵乘以 dpr，让按 CSS 像素写的坐标自动映射到高分辨率缓冲区：尺寸正确、显示清晰，代码不用到处乘 dpr。**scale 不改变缓冲区，只改变坐标如何映射到缓冲区。**
 
 ```js
@@ -131,7 +66,7 @@ ctx.scale(dpr, dpr);
 ctx.fillRect(0, 0, 100, 100);   // 100×100 坐标 → 200×200 设备像素 → 屏幕 100×100 CSS 像素
 ```
 
-### 9. `scale` 的两条约束
+`scale` 还有两条约束容易踩：
 
 1. **先设 `canvas.width` / `canvas.height`，再 `scale`**。给这两个属性赋任何值都会重置整个 2D 上下文状态（变换矩阵、`fillStyle`、`lineWidth`、`font`）；顺序写反，缩放白做，重设尺寸后必须重新 `scale`。
 
@@ -167,6 +102,74 @@ function setupCanvas(canvas, cssWidth, cssHeight) {
   return ctx;   // 之后所有绘制都按 CSS 像素写，例如 fillRect(10, 10, 100, 100)
 }
 ```
+
+### 4. 面试官：SVG 那边怎么控制尺寸和样式？
+
+**回答**：SVG 的图形就是 DOM——`viewBox` 定义内部坐标系，`width`/`height` 决定显示尺寸，两者分离，因此可任意缩放而不失真；样式直接用 CSS 控制，还能做过渡动画。
+
+```html
+<svg viewBox="0 0 100 100" width="200" height="200" role="img" aria-label="进度环">
+  <circle cx="50" cy="50" r="40" fill="none" stroke="#e5e7eb" stroke-width="8" />
+  <circle class="progress" cx="50" cy="50" r="40" fill="none" stroke="#3b82f6"
+          stroke-width="8" stroke-dasharray="251" stroke-dashoffset="63"
+          transform="rotate(-90 50 50)" />
+</svg>
+```
+
+```css
+/* 直接用 CSS 控制图形，还能过渡动画 */
+.progress { transition: stroke-dashoffset .3s ease; }
+svg:hover .progress { stroke: #2563eb; }
+```
+
+### 5. 面试官：可访问性和 SEO 上两者差在哪？
+
+**回答**：Canvas 画的内容机器读不到，SVG 的文本是真实文本。Canvas 默认对读屏不可见，需在标签内放 fallback，外层加 `role="img"` 与 `aria-label`，并另提供等价数据表或文字；复杂可视化给「查看数据」替代视图。SVG 文本可选择、搜索、朗读，也可被索引。
+
+### 6. 面试官：安全上有什么要注意的？
+
+**回答**：两个点，一个在 Canvas、一个在 SVG：
+
+- **Canvas 导出安全**：画布被跨域图片污染后 `toDataURL` 会抛 `SecurityError`，图片服务需支持 CORS 且设置 `img.crossOrigin = 'anonymous'`。
+- **内联 SVG 安全**：内联 SVG 中的 `<script>` 和事件属性会执行，嵌入用户上传的 SVG 前必须清洗；作为 `<img src>` 引入时脚本不执行。
+
+### 7. 面试官：怎么选？能总结一下吗？
+
+**回答**：选型依次问三个问题：图形数量是否极多、是否需要元素级交互、是否需要无损缩放或无 JS 渲染。
+
+<Mermaid chart={`
+flowchart TD
+    Q1{"图形数量是否极多<br/>或需要逐帧重绘？"}
+    Q1 -- "是" --> C["Canvas<br/>必要时上 WebGL / OffscreenCanvas"]
+    Q1 -- "否" --> Q2{"是否需要元素级交互<br/>样式 / 可访问文本？"}
+    Q2 -- "是" --> S["SVG"]
+    Q2 -- "否" --> Q3{"是否需要无损缩放<br/>或静态无 JS 渲染？"}
+    Q3 -- "是" --> S
+    Q3 -- "否" --> C
+`} />
+
+- **选 Canvas**：游戏、粒子与物理效果、上万点位可视化、图像处理、视频帧、地图瓦片、白板。
+- **选 SVG**：图标、Logo、可缩放插图、hover/CSS 动画、节点数可控的交互图表、需要读屏或 SEO 的图形。
+- **混合方案**：Canvas 画海量静态层，DOM 或 SVG 叠交互层；ECharts 等可按数据量切换渲染器。
+
+全维度对比用一张表收尾：
+
+| 维度 | Canvas | SVG |
+| --- | --- | --- |
+| **图形类型** | 位图（栅格） | 矢量 |
+| **缩放 / 高 DPI** | 放大会模糊；需手动按 `devicePixelRatio` 放大缓冲区并缩放绘图上下文 | 无损缩放，任意倍率都清晰 |
+| **元素级交互** | ❌ 没有事件，点击「某个圆」需要自己写命中检测（hit test） | ✅ 直接在 `<circle>` 上绑 `click` |
+| **样式控制** | 只能用 canvas 的绘图 API 设置颜色/线宽；CSS 只能作用于整个元素（透明度、filter、transform） | ✅ CSS 直接控制填充、描边、hover、过渡动画，`currentColor` 可继承主题色 |
+| **动画** | JS 逐帧清空重绘（`requestAnimationFrame`），完全可控 | CSS 动画 / JS 改属性 / SMIL；元素一多会卡 |
+| **性能拐点** | 图形**数量越多越有优势**（上万粒子仍流畅），适合高频重绘 | 元素数量到**千级**后 DOM 与样式计算开销明显，上万几乎不可行 |
+| **内存** | 与画布像素尺寸成正比（大画布很吃内存，且有最大尺寸限制） | 与节点数量和路径复杂度成正比 |
+| **可访问性** | ❌ 默认对读屏软件不可见，需要 fallback 内容 + ARIA | ✅ 文本是可读文本，可被选中、搜索、朗读 |
+| **SEO** | 内容不被索引 | 文本内容可被索引 |
+| **文本** | 能画文字，但不可选中、不可搜索、不可复制 | 真实文本，可选中可搜索 |
+| **导出图片** | 简单：`toDataURL()` / `toBlob()` | 需序列化为字符串再转成图片，或走服务端 |
+| **像素级操作** | ✅ `getImageData` / `putImageData`，做图像处理、滤镜、识别 | ❌ 无法直接操作像素 |
+| **依赖** | 必须有 JS，禁用 JS 时一片空白 | 纯声明式，无 JS 也能渲染（静态部分） |
+| **文件体积** | 与像素尺寸无关，代码量小 | 与图形复杂度成正比，简单图标极小，复杂图形很大 |
 
 ## 你的回答
 

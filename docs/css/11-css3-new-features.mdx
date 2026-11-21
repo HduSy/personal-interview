@@ -4,13 +4,13 @@ import { Sandpack } from '../../components';
 
 ## 高频问答
 
-### 1. CSS3 是什么
+### 1. 面试官：CSS3 新增了哪些特性？
 
-CSS3 不是一个单一版本，而是**一组按模块拆分的规范**：选择器、背景与边框、颜色、布局、动画、字体各自独立演进，每个模块有自己的 Level。
+**回答**：CSS3 不是一个单一版本，而是**一组按模块拆分的规范**：选择器、背景与边框、颜色、布局、动画、字体各自独立演进，每个模块有自己的 Level。所以「CSS3 新特性」实际指这些模块新增的能力，按用途分五类：**选择器、布局、视觉、动画、响应式**。
 
-所以「CSS3 新特性」实际指的是这些模块新增的能力，按用途分五类比较好记：**选择器、布局、视觉、动画、响应式**。
+### 2. 面试官：选择器和变量方面新增了什么？
 
-### 2. 选择器与变量
+**回答**：六组能力：
 
 - 属性选择器：`[attr^="val"]`、`[attr$="val"]`、`[attr*="val"]`
 - 结构伪类：`:nth-child()`、`:nth-of-type()`、`:first-of-type`、`:empty`
@@ -19,19 +19,13 @@ CSS3 不是一个单一版本，而是**一组按模块拆分的规范**：选�
 - 自定义属性：`--color: #fff` 配合 `var(--color)`
 - 计算函数：`calc()`、`clamp()`、`min()`、`max()`
 
-### 3. 布局
+### 3. 面试官：布局方面呢？
 
-- **Flexbox**：一维弹性布局
-- **Grid**：二维网格布局
-- **多列布局**：`column-count`、`column-gap`
-- `box-sizing: border-box`
-- `aspect-ratio`：直接声明宽高比
+**回答**：核心是 **Flexbox**（一维弹性布局）和 **Grid**（二维网格布局），再加多列布局（`column-count`、`column-gap`）、`box-sizing: border-box`、`aspect-ratio`（直接声明宽高比）。
 
-### 4. 视觉与动画
+### 4. 面试官：视觉和动画方面呢？
 
-视觉：`border-radius`、`box-shadow`、`text-shadow`、`linear-gradient` / `radial-gradient`、`filter`、`mix-blend-mode`、`opacity`、`rgba()` / `hsl()`。
-
-动画：`transition` 过渡、`@keyframes` + `animation` 关键帧动画、`transform` 的 2D（`translate` / `scale` / `rotate`）与 3D（`perspective`、`rotate3d`）变换。
+**回答**：视觉是 `border-radius`、`box-shadow`、`text-shadow`、`linear-gradient` / `radial-gradient`、`filter`、`mix-blend-mode`、`opacity`、`rgba()` / `hsl()`；动画是 `transition` 过渡、`@keyframes` + `animation` 关键帧动画、`transform` 的 2D（`translate` / `scale` / `rotate`）与 3D（`perspective`、`rotate3d`）变换。
 
 下面这个卡片同时用了渐变、圆角、阴影、过渡和变换：
 
@@ -54,19 +48,17 @@ CSS3 不是一个单一版本，而是**一组按模块拆分的规范**：选�
 .card:hover { transform: translateY(-6px) scale(1.05); box-shadow: 0 10px 24px rgba(96, 165, 250, .55); }`}
 />
 
-### 5. 响应式
+### 5. 面试官：响应式方面呢？
 
-- 媒体查询：`@media (max-width: 768px)`
-- 视口单位：`vw`、`vh`、`dvh`
-- 容器查询：`@container` 配合 `container-type`
+**回答**：媒体查询 `@media (max-width: 768px)`、视口单位 `vw` / `vh` / `dvh`、容器查询 `@container` 配合 `container-type`。
 
-### 6. 高频追问
+### 6. 面试官：有 CSS4 吗？Flex 和 Grid 算 CSS3 吗？
 
-**CSS3 和 CSS4 有什么区别？** 没有 CSS4 这个整体版本。CSS 早已改为模块化演进，所谓「CSS4 特性」实际是某些模块的新 Level，比如 `:has()`、容器查询、`subgrid`、嵌套（nesting）、`@layer`、`color-mix()`。
+**回答**：没有 CSS4 这个整体版本。CSS 早已改为模块化演进，所谓「CSS4 特性」实际是某些模块的新 Level，比如 `:has()`、容器查询、`subgrid`、嵌套（nesting）、`@layer`、`color-mix()`。Flex 和 Grid 算 CSS3：它们各自是独立的模块（Flexible Box Layout、Grid Layout），只是不再挂在「CSS3」这个总版本号下。
 
-**Flex 和 Grid 算 CSS3 吗？** 算。它们各自是独立的模块（Flexible Box Layout、Grid Layout），只是不再挂在「CSS3」这个总版本号下。
+### 7. 面试官：这些特性里最该记住的是哪几个？
 
-**最该记住的三个？** `flex` / `grid` 改变布局方式，`transition` / `animation` 让 CSS 具备动效能力，`var()` 让样式有了变量和主题能力。
+**回答**：三组：`flex` / `grid` 改变布局方式，`transition` / `animation` 让 CSS 具备动效能力，`var()` 让样式有了变量和主题能力。
 
 ## 加深理解
 

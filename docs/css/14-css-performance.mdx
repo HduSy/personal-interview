@@ -4,7 +4,11 @@ import { Sandpack } from '../../components';
 
 ## 高频问答
 
-### 1. 加载层：让 CSS 更快到达
+### 1. 面试官：CSS 提高性能的方法有哪些？
+
+**回答**：先给 CSS 让页面变慢的根本原因，两点：样式表阻塞渲染（下载完才能画首屏）；运行时选择器匹配与样式重算占主线程。优化就围绕这两点，分四层做：加载、渲染、选择器、布局。
+
+加载层的手段——让 CSS 更快到达：
 
 - **压缩与合并**：构建时压缩（去空白、简写合并），HTTP/2 下按页面拆分按需加载，避免单个巨型 CSS。
 - **关键 CSS（Critical CSS）**：首屏样式内联进 HTML，其余样式异步加载，消除渲染阻塞带来的白屏。
@@ -15,26 +19,14 @@ import { Sandpack } from '../../components';
   <link rel="stylesheet" href="print.css" media="print">
   ```
 
-### 2. 渲染层：少触发回流重绘
+### 2. 面试官：渲染层面怎么优化？
+
+**回答**：核心是少触发回流重绘：
 
 - **动画只用 `transform` 和 `opacity`**：只走合成阶段，不触发布局和绘制；改 `width`、`top`、`margin` 会反复回流。
 - **动画元素提升为合成层**：`will-change: transform` 或 `translateZ(0)`，注意只加给真正动画的少数元素，滥用会吃内存。
 - **批量读写 DOM**：先集中读布局信息（`offsetWidth`、`getBoundingClientRect`），再集中写，避免强制同步布局。
 - **用 class 批量改样式**：一次改 class 优于循环里逐条写 `style.xxx`。
-
-### 3. 选择器层：写浏览器好匹配的样式
-
-- **从右往左匹配**：`div p .title` 先找 `.title` 再向上验证。避免最右端是通配符或标签的深层嵌套，如 `.nav ul li a span`。
-- **避免过深层级**：三代以内的选择器足够，BEM 或原子化 CSS 直接单类名命中，匹配最快。
-- **少用代价高的选择器**：`*` 通配、属性选择器 `[href^="..."]`、`:nth-child` 复杂表达式在大文档上开销大，按需使用。
-
-### 4. 布局层：用现代布局替代 hack
-
-- **Flex/Grid 替代浮动布局**：布局计算由引擎原生处理，比 float + 清除浮动的 hack 更快更稳。
-- **`content-visibility: auto`**：跳过视口外长列表的渲染，长页面首屏渲染明显变快，配合 `contain-intrinsic-size` 防止滚动条跳动。
-- **`contain: layout paint`**：声明元素的渲染边界，内部变化不波及外部。
-
-### 5. 沙箱实测：transform 与 top 动画的性能差
 
 两个方块做同样的往返移动动画，左边改 `top`，右边用 `transform`。打开控制台的 Performance 面板录制，左边持续出现紫色 Layout 条：
 
@@ -62,15 +54,25 @@ import { Sandpack } from '../../components';
 .transform-anim { animation: move-transform 1.6s linear infinite; }`}
 />
 
-### 6. 高频追问
+### 3. 面试官：选择器怎么写匹配更快？
 
-**`link` 加 `rel="preload"` 有什么用？** 让 CSS 提前下载，与 HTML 解析并行，缩短首屏阻塞时间；加载完成后再切换为正式样式表。
+**回答**：浏览器匹配选择器是**从右往左**的：`div p .title` 先找 `.title` 再向上验证，所以写法的核心是让最右端好匹配、层级别太深：
 
-**CSS 文件应该放哪？** `<head>` 内。放 body 末尾会先渲染无样式内容再闪变（FOUC）；放 head 配合关键 CSS 内联，首屏体验最好。
+- 最右端避免通配符或标签的深层嵌套，如 `.nav ul li a span`。
+- 层级控制在三代以内足够，BEM 或原子化 CSS 直接单类名命中，匹配最快。
+- 少用代价高的选择器：`*` 通配、属性选择器 `[href^="..."]`、`:nth-child` 复杂表达式在大文档上开销大，按需使用。
 
-**`@import` 和 `<link>` 的区别？** `@import` 要等所在 CSS 下载解析后才发起子请求，串行阻塞；`<link>` 与 HTML 解析并行，且可被 preload。生产环境用 `<link>`。
+### 4. 面试官：布局层面有什么优化手段？
 
-**CSS 会让页面变慢的根本原因是什么？** 两点：样式表阻塞渲染（下载完才能画首屏）；运行时选择器匹配与样式重算占主线程。优化就是围绕这两点：加载更快、重算更少。
+**回答**：用现代布局替代 hack：
+
+- **Flex/Grid 替代浮动布局**：布局计算由引擎原生处理，比 float + 清除浮动的 hack 更快更稳。
+- **`content-visibility: auto`**：跳过视口外长列表的渲染，长页面首屏渲染明显变快，配合 `contain-intrinsic-size` 防止滚动条跳动。
+- **`contain: layout paint`**：声明元素的渲染边界，内部变化不波及外部。
+
+### 5. 面试官：CSS 文件放在哪、怎么加载有讲究吗？
+
+**回答**：放 `<head>` 内。放 body 末尾会先渲染无样式内容再闪变（FOUC）；放 head 配合关键 CSS 内联，首屏体验最好。加载方式上，`@import` 要等所在 CSS 下载解析后才发起子请求，串行阻塞；`<link>` 与 HTML 解析并行，且可被 preload——用 `<link rel="preload">` 让 CSS 提前下载，缩短首屏阻塞时间，加载完成后再切换为正式样式表。生产环境用 `<link>`。
 
 ## 加深理解
 

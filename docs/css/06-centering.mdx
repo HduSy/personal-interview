@@ -2,18 +2,20 @@
 
 ## 高频问答
 
-### 1. 两类方案
+### 1. 面试官：元素水平垂直居中的方法有哪些？如果元素不定宽高呢？
 
-居中方案按「谁分配父容器的剩余空间」分两类：
+**回答**：居中方案按「谁分配父容器的剩余空间」分两类：
 
 - **需要确定尺寸**：负 margin、`inset: 0` + `margin: auto`、`line-height`、`calc` 计算偏移。
 - **不依赖尺寸**：`transform` 百分比位移、Flexbox、Grid、`table-cell`、块级 `align-content`。
 
-「元素不定宽高」只能用第二类。
+**元素不定宽高，只能用第二类**——第一类的偏移量全部按自身尺寸的一半计算，尺寸不知道就算不出来。
 
-### 2. 需要确定尺寸的方案
+### 2. 面试官：需要确定尺寸的方案具体怎么做？
 
-#### (1) 绝对定位 + 负 margin
+**回答**：四种，共同点是偏移量按自身尺寸的一半计算，尺寸一变就要同步改。
+
+**绝对定位 + 负 margin**：`top/left: 50%` 把元素左上角移到父容器中心，负 margin 按自身尺寸的一半拉回。
 
 ```css
 .parent { position: relative; }
@@ -29,9 +31,7 @@
 }
 ```
 
-`top/left: 50%` 把元素左上角移到父容器中心，负 margin 按自身尺寸的一半拉回。数值固定，尺寸一变就要同步改。
-
-#### (2) 绝对定位 + `inset: 0` + `margin: auto`
+**绝对定位 + `inset: 0` + `margin: auto`**：四边偏移归零后，剩余空间由 `margin: auto` 平分。要求父元素有定位上下文、子元素确定宽高（`<img>` 等替换元素除外）；只写 `inset: 0` 元素会靠左。
 
 ```css
 .parent { position: relative; }
@@ -45,9 +45,7 @@
 }
 ```
 
-四边偏移归零后，剩余空间由 `margin: auto` 平分。要求父元素有定位上下文、子元素确定宽高（`<img>` 等替换元素除外）；只写 `inset: 0` 元素会靠左。
-
-#### (3) `line-height` 单行文本
+**`line-height` 单行文本**：行高撑高行盒实现垂直居中。只适合单行，多行会溢出；行高会被子元素继承，需要在子元素上重置。
 
 ```css
 .parent {
@@ -57,9 +55,7 @@
 }
 ```
 
-`line-height` 撑高行盒实现垂直居中。只适合单行，多行会溢出；行高会被子元素继承，需要在子元素上重置。
-
-#### (4) `calc` 计算偏移
+**`calc` 计算偏移**：与负 margin 等价，同样必须知道尺寸。
 
 ```css
 .child {
@@ -71,11 +67,11 @@
 }
 ```
 
-与负 margin 等价，同样必须知道尺寸。
+### 3. 面试官：不依赖尺寸的方案呢？
 
-### 3. 不依赖尺寸的方案
+**回答**：五种，共同点是偏移或对齐由布局机制自己算，不读元素的宽高。
 
-#### (1) 绝对定位 + `transform`
+**绝对定位 + `transform`**：`translate` 百分比参照自身尺寸，无需知道宽高。注意 `transform` 创建层叠上下文，半像素偏移模糊。
 
 ```css
 .parent { position: relative; }
@@ -88,9 +84,7 @@
 }
 ```
 
-`translate` 百分比参照自身尺寸，无需知道宽高；`transform` 创建层叠上下文，半像素偏移模糊。
-
-#### (2) Flexbox
+**Flexbox**：弹性布局分配空间；`margin: auto` 吸收自由空间，块级流垂直 auto margin 为 0。
 
 ```css
 .parent {
@@ -100,9 +94,7 @@
 }
 ```
 
-弹性布局分配空间。`margin: auto` 吸收自由空间；块级流垂直 auto margin 为 0。
-
-#### (3) Grid
+**Grid**：`place-items` 是 `align-items` 与 `justify-items` 的合写；`place-self: center` 或 `margin: auto` 均可。
 
 ```css
 .parent {
@@ -111,9 +103,7 @@
 }
 ```
 
-`place-items` 是 `align-items` 与 `justify-items` 的合写；`place-self: center` 或 `margin: auto` 均可。
-
-#### (4) `display: table-cell`
+**`display: table-cell`**：垂直靠 `vertical-align`，水平靠 `text-align` + `inline-block`，无需定尺寸；代价是 `margin` 失效。
 
 ```css
 .parent {
@@ -127,9 +117,7 @@
 .child { display: inline-block; }
 ```
 
-垂直靠 `vertical-align`，水平靠 `text-align` + `inline-block`，无需定尺寸；代价是 `margin` 失效。
-
-#### (5) 块级 `align-content`
+**块级 `align-content`**：块级容器也可用 `align-content: center`，无需额外 `display`。
 
 ```css
 .parent {
@@ -138,11 +126,21 @@
 }
 ```
 
-块级容器也可用 `align-content: center`，无需额外 `display`。
+### 4. 面试官：这些方案常见的失败点有哪些？
 
-### 4. 对比与常见失败点
+**回答**：七个高频失败点：
 
-定尺寸方案兼容老浏览器；不定尺寸用 Flex/Grid。
+1. **高度塌陷**：子元素脱离文档流，父元素无内容时高度为 0。
+2. **定位上下文缺失**：父元素 `static` 时参照更远的已定位祖先或初始包含块。
+3. **`inset:0 + margin:auto` 在 `width:auto` 时拉伸填满**。
+4. **`transform` 半像素模糊**：设偶数尺寸或用 Flex/Grid。
+5. **`line-height` 继承**：多行文本需重置。
+6. **块级垂直 `margin: auto` 无效**：需 `display: flex/grid`。
+7. **`table-cell` 改变布局**：`margin` 失效。
+
+### 5. 面试官：能总结一下吗？
+
+**回答**：一张表收尾——定尺寸方案的价值是兼容老浏览器，不定尺寸的现代方案首选 Flex 和 Grid：
 
 | 方案 | 需要定宽高 | 是否脱离文档流 | 浏览器支持 | 适用场景 |
 | --- | --- | --- | --- | --- |
@@ -155,14 +153,6 @@
 | Grid + `place-items` | ❌ | ❌ | 主流现代浏览器 | 现代布局首选 |
 | `table-cell` | ❌ | ❌ | 全部 | 兼容性要求极高的老项目 |
 | 块级 `align-content` | ❌ | ❌ | 2024 年后新版本 | 简单块级垂直居中 |
-
-1. **高度塌陷**：子元素脱离文档流，父元素无内容时高度为 0。
-2. **定位上下文缺失**：父元素 `static` 时参照更远的已定位祖先或初始包含块。
-3. **`inset:0 + margin:auto` 在 `width:auto` 时拉伸填满**。
-4. **`transform` 半像素模糊**：设偶数尺寸或用 Flex/Grid。
-5. **`line-height` 继承**：多行文本需重置。
-6. **块级垂直 `margin: auto` 无效**：需 `display: flex/grid`。
-7. **`table-cell` 改变布局**：`margin` 失效。
 
 ## 你的回答
 

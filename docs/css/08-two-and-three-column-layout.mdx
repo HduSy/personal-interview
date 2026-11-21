@@ -4,9 +4,11 @@ import { Sandpack } from '../../components';
 
 ## 高频问答
 
-### 1. 两栏：左侧固定，右侧自适应
+### 1. 面试官：如何实现两栏布局，右侧自适应？
 
-#### (1) Flexbox
+**回答**：两栏的现代写法首选 Flex 或 Grid，一行核心声明搞定；老项目还有浮动 + BFC 和绝对定位两种。
+
+**Flexbox**：左侧固定宽度且禁止收缩，右侧 `flex: 1` 吃掉剩余空间：
 
 ```css
 .parent { display: flex; }
@@ -14,11 +16,32 @@ import { Sandpack } from '../../components';
 .right  { flex: 1; min-width: 0; }
 ```
 
-`flex-shrink: 0` 防止左侧被压窄。
+`flex-shrink: 0` 防止左侧被压窄。**`flex: 1` 展开为 `flex-grow: 1; flex-shrink: 1; flex-basis: 0%`**，其中 `flex-basis: 0%` 表示分配空间时忽略内容宽度，完全按剩余空间计算；对比 `flex: auto`（`1 1 auto`）——它从内容宽度出发再伸缩。
 
-**`flex: 1` 展开为 `flex-grow: 1; flex-shrink: 1; flex-basis: 0%`**，其中 `flex-basis: 0%` 表示分配空间时忽略内容宽度，完全按剩余空间计算。对比 `flex: auto`（`1 1 auto`）——它从内容宽度出发再伸缩。
+**Grid**：一行轨道声明直接表达「固定列 + 剩余列」：
 
-**`min-width: 0` 用于突破自动最小尺寸**。flex 项目的 `min-width` 默认是 `auto`，当项目 `overflow` 为 `visible` 时，这个 `auto` 会被解析成内容的**最小固有宽度**。
+```css
+.parent { display: grid; grid-template-columns: 200px 1fr; }
+```
+
+**浮动 + [BFC](/css/07-bfc)**：右侧形成 BFC 后不与浮动元素重叠，自动占据剩余宽度：
+
+```css
+.left  { float: left; width: 200px; }
+.right { overflow: hidden; }
+```
+
+**绝对定位**：左侧脱离文档流，右侧用 `margin-left` 让位；父元素需有高度，否则塌陷：
+
+```css
+.parent { position: relative; }
+.left   { position: absolute; width: 200px; }
+.right  { margin-left: 200px; }
+```
+
+### 2. 面试官：为什么 flex: 1 的项目还要写 min-width: 0？
+
+**回答**：**`min-width: 0` 用于突破自动最小尺寸**。flex 项目的 `min-width` 默认是 `auto`，当项目 `overflow` 为 `visible` 时，这个 `auto` 会被解析成内容的**最小固有宽度**——长单词顶住项目，flex 无法把它压得更小，整行被撑破。
 
 下面对比两行：唯一差别是 `.outer` 有没有写 `min-width: 0`。第一行被长单词撑破，第二行正常收缩并显示省略号。
 
@@ -68,34 +91,9 @@ import { Sandpack } from '../../components';
 
 **常见触发场景**：不含空格的长单词、长 URL、`white-space: nowrap` 文本、`<pre>` 与宽表格、嵌套的 flex / grid 容器。这些内容的最小固有宽度都很大，配合 `overflow: hidden` + `text-overflow: ellipsis` 可做成省略号截断。
 
-#### (2) Grid
+### 3. 面试官：三栏布局中间自适应怎么做？
 
-```css
-.parent { display: grid; grid-template-columns: 200px 1fr; }
-```
-
-#### (3) 浮动 + BFC
-
-```css
-.left  { float: left; width: 200px; }
-.right { overflow: hidden; }
-```
-
-右侧形成 BFC 后不与浮动元素重叠，自动占据剩余宽度。
-
-#### (4) 绝对定位
-
-```css
-.parent { position: relative; }
-.left   { position: absolute; width: 200px; }
-.right  { margin-left: 200px; }
-```
-
-左侧脱离文档流，右侧用 `margin-left` 让位。父元素需有高度，否则塌陷。
-
-### 2. 三栏：中间列 DOM 前置，左右固定
-
-DOM 统一写成中间列在最前，让正文先被解析和朗读：
+**回答**：DOM 统一写成中间列在最前，让正文先被解析和朗读：
 
 ```html
 <div class="parent">
@@ -105,7 +103,7 @@ DOM 统一写成中间列在最前，让正文先被解析和朗读：
 </div>
 ```
 
-#### (1) Flexbox
+**Flexbox**：默认所有项目 `order: 0`，视觉顺序与 DOM 一致；给左列 `order: -1` 后它排到最前，最终显示为左、中、右：
 
 ```css
 .parent { display: flex; }
@@ -114,9 +112,7 @@ DOM 统一写成中间列在最前，让正文先被解析和朗读：
 .left   { order: -1; }
 ```
 
-默认所有项目 `order: 0`，视觉顺序与 DOM 一致；给左列 `order: -1` 后它排到最前，最终显示为左、中、右。
-
-#### (2) Grid
+**Grid**：用 `grid-area` 显式指定位置，DOM 顺序与视觉顺序完全解耦：
 
 ```css
 .parent {
@@ -129,9 +125,7 @@ DOM 统一写成中间列在最前，让正文先被解析和朗读：
 .right  { grid-area: right; }
 ```
 
-用 `grid-area` 显式指定位置，DOM 顺序与视觉顺序完全解耦。
-
-#### (3) 浮动 + BFC
+**浮动 + BFC**：左右浮动、中间让位：
 
 ```css
 .left   { float: left;  width: 200px; }
@@ -139,13 +133,13 @@ DOM 统一写成中间列在最前，让正文先被解析和朗读：
 .middle { overflow: hidden; margin: 0 200px; }
 ```
 
-浮动本身做不到中间列 DOM 前置——浮动元素会按 DOM 顺序依次排布，中间列写在前就必然先占位。要用浮动实现中列前置，只能靠下面的圣杯或双飞翼。
+浮动本身做不到中间列 DOM 前置——浮动元素会按 DOM 顺序依次排布，中间列写在前就必然先占位。要用浮动实现中列前置，只能靠圣杯或双飞翼。
 
-#### (4) 圣杯布局与双飞翼布局
+### 4. 面试官：听说过圣杯布局和双飞翼布局吗？
 
-这两种方案的核心目的相同：**让中间列在 DOM 中排在最前**（内容优先，利于 SEO 与无障碍），再用负 margin 把它拉到正确位置。
+**回答**：听说过。这两种方案的核心目的相同：**让中间列在 DOM 中排在最前**（内容优先，利于 SEO 与无障碍），再用负 margin 把它拉到正确位置。
 
-**圣杯布局**：
+**圣杯布局**——中间先占满整行，`margin-left: -100%` 把左列拉到上一行起点，再用容器的 `padding` 和 `position: relative` 把左右列推到两侧：
 
 ```html
 <div class="container">
@@ -162,9 +156,7 @@ DOM 统一写成中间列在最前，让正文先被解析和朗读：
 .right  { float: left; width: 200px; margin-left: -200px; position: relative; right: -200px; }
 ```
 
-中间先占满整行，`margin-left: -100%` 把左列拉到上一行起点，再用容器的 `padding` 和 `position: relative` 把左右列推到两侧。
-
-**双飞翼布局**：
+**双飞翼布局**——给中间列加一层内部元素，用内部元素的 margin 让位：
 
 ```html
 <div class="container">
@@ -185,7 +177,9 @@ DOM 统一写成中间列在最前，让正文先被解析和朗读：
 
 区别在于：**圣杯用容器的 padding + 左右列的相对定位让位；双飞翼给中间列加一层内部元素，用内部元素的 margin 让位**，因此不需要 `position: relative`。
 
-### 3. 选型
+### 5. 面试官：能总结一下吗？
+
+**回答**：一张选型表收尾：
 
 | 方案 | 代码量 | 中间列可优先渲染 | 适用场景 |
 | --- | --- | --- | --- |

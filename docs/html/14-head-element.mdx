@@ -2,15 +2,15 @@
 
 ## 高频问答
 
-### 1. head 的作用：文档元信息的容器
+### 1. 面试官：head 标签有什么作用？
 
-`<head>` 是 `<html>` 下的第一个子元素，存放文档的元信息：描述文档是谁、怎么解析、依赖什么资源，不描述页面长什么样。
+**回答**：`<head>` 是**文档元信息的容器**——`<html>` 下的第一个子元素，存放描述文档是谁、怎么解析、依赖什么资源的信息，不描述页面长什么样。
 
 - 内容不参与页面渲染，唯一例外是 `<title>` 的文本显示在浏览器标签页上。
 - 它在浏览器开始渲染之前就被消费：字符编码、视口、渲染模式、样式与脚本都在这一阶段确定，写错的代价高于 body 内容。
 - 它是浏览器、爬虫、社交平台和辅助技术读取页面的入口。
 
-它承担五类职责：
+具体承担五类职责：
 
 | 职责 | 典型元素 |
 | --- | --- |
@@ -20,26 +20,26 @@
 | **SEO 与社交分享** | `<meta name="robots">`、Open Graph（`og:*`）、Twitter Card、结构化数据 |
 | **平台能力与安全** | `<link rel="manifest">`（PWA）、`<meta name="theme-color">`、`<meta http-equiv>` 类指令 |
 
-### 2. head 里能放什么
+### 2. 面试官：head 里能放哪些元素？
 
-只允许 `<title>`、`<base>`、`<link>`、`<style>`、`<script>`、`<noscript>`、`<template>`、`<meta>` 八类。放其他元素（`<div>`、`<p>`、`<img>`）或裸文本都是解析错误，浏览器会隐式结束 `<head>`、开启 `<body>`，把内容挪进 body。
+**回答**：只允许八类：`<title>`、`<base>`、`<link>`、`<style>`、`<script>`、`<noscript>`、`<template>`、`<meta>`。放其他元素（`<div>`、`<p>`、`<img>`）或裸文本都是解析错误，浏览器会隐式结束 `<head>`、开启 `<body>`，把内容挪进 body。
 
 `<head>` 的起止标签在满足条件时可以省略，但其中的元素仍会被解析进隐式 head；实践里一律写全。
 
-### 3. 规范层面：只有 `<title>` 必不可少
+### 3. 面试官：其中什么标签必不可少？
+
+**回答**：分两层答——**规范上只有 `<title>` 必须；实践里 `charset` 和 `viewport` 同样不可省。**
 
 `<title>` 是唯一被规范强制要求出现在文档头部的元素，每个文档必须有且仅有一个（例外：`<iframe srcdoc>` 生成的文档，或标题由更高层协议提供时）。它是文档名称，标签页、书签、历史记录、搜索结果和读屏软件朗读的页面名都来自它；没有 title 时这些场景都显示「无标题文档」。与 `<h1>` 的分工见 [10. title 与 h1 的区别](/html/10-title-vs-h1-b-vs-strong-i-vs-em)。
 
-### 4. 工程层面：`charset` 与 `viewport` 事实上必备
-
-规范上两者都有条件（编码已由 HTTP 头声明时，`meta charset` 不是必须），但工程里缺了都会出事：
+`charset` 与 `viewport` 规范上都有条件（编码已由 HTTP 头声明时，`meta charset` 不是必须），但工程里缺了都会出事：
 
 - **`<meta charset="utf-8">`**：不写要靠浏览器猜编码，猜错就是中文乱码；必须在前 1024 字节内，放后面等于没写。
 - **`<meta name="viewport" content="width=device-width, initial-scale=1">`**：不写，移动端按 980px 虚拟视口渲染再整体缩小，媒体查询失准。
 
-面试答法分两层：**规范上只有 `<title>` 必须；实践里 `charset` 和 `viewport` 同样不可省。**
+### 4. 面试官：能给一份标准的 head 写一下吗？
 
-### 5. 一份标准的 head
+**回答**：可以，一份带注释的模板：
 
 ```html
 <!DOCTYPE html>
@@ -86,7 +86,9 @@
 
 顺序要求：`charset` 最优先（1024 字节限制），`viewport` 紧随其后；`title` 与 `description` 尽量靠前；样式表在脚本之前，避免脚本执行时还要等样式。
 
-### 6. 常见坑
+### 5. 面试官：head 有哪些常见的坑？
+
+**回答**：六个高频坑：
 
 - **`<meta charset>` 写在 1024 字节后**：等于没声明；长注释、过长标题、前置脚本都可能把它挤出去。
 - **`viewport` 用 `user-scalable=no`**：禁用用户缩放，属无障碍问题，现代浏览器已开始忽略。
@@ -95,12 +97,17 @@
 - **`<base>` 写错**：影响所有相对 URL，只允许出现一个，可能让整站资源 404。
 - **`<style>` 放 head 最底部且前面有同步脚本**：脚本阻塞解析，首屏白屏变长。
 
-### 7. 资源加载
+### 6. 面试官：CSS 和 JS 在 head 里怎么放？资源预加载指令有哪些？
 
-- **CSS 放 head，JS 放 body 末尾或 head 加 `defer` / `async`**：CSS 放 head 是为了尽早下载、避免无样式闪烁，渲染会等待 CSSOM；脚本会阻塞 HTML 解析，放末尾或用 `defer` / `async` 不阻塞首屏（详见 [04. defer 与 async](/html/04-script-defer-vs-async)）。
+**回答**：**CSS 放 head，JS 放 body 末尾或 head 加 `defer` / `async`**——CSS 放 head 是为了尽早下载、避免无样式闪烁，渲染会等待 CSSOM；脚本会阻塞 HTML 解析，放末尾或用 `defer` / `async` 不阻塞首屏（详见 [04. defer 与 async](/html/04-script-defer-vs-async)）。
+
+预加载指令按提前量从大到小：
+
 - **预加载指令**：`preload` 提前加载当前页马上要用的资源（必须写 `as`，否则只是低优先级抓取）；`prefetch` 预取下一页可能用到的资源；`preconnect` 提前完成 DNS + TCP + TLS 握手；`dns-prefetch` 只提前做 DNS 解析。
 
-### 8. 其他边界
+### 7. 面试官：head 还有哪些边界情况？
+
+**回答**：三个值得知道的边界：
 
 - **CSP 可以写在 meta 里**，但 `frame-ancestors`、`report-uri`、`sandbox` 等指令在 meta 中无效，生产仍以 HTTP 响应头为主。
 - **`<noscript>` 在 head 里只能放** `<link>`、`<style>`、`<meta>`。

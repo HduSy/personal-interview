@@ -4,18 +4,18 @@ import { Mermaid } from '../../components';
 
 ## 高频问答
 
-### 1. 两层含义
+### 1. 面试官：HTML5 离线存储怎么使用？工作原理是什么？
 
-HTML5 离线存储分资源离线和数据离线两件事：
+**回答**：HTML5 离线存储分**资源离线**和**数据离线**两件事：
 
 - **资源离线**：断网时页面本身能不能打开。经典方案是 **AppCache**，现在是 **Service Worker + Cache API**。
 - **数据离线**：断网时产生的数据存哪里。用 **Web Storage**（localStorage / sessionStorage）和 **IndexedDB**。
 
-**AppCache 已从 HTML 规范废弃，主流浏览器也已移除支持**，现代方案是 Service Worker + Cache API。
+**AppCache 已从 HTML 规范废弃，主流浏览器也已移除支持**，现代方案是 Service Worker + Cache API。两件事分别展开。
 
-### 2. AppCache 的使用与工作原理
+### 2. 面试官：AppCache 是怎么用的？工作原理是什么？
 
-AppCache 用 manifest 声明离线资源，通过 `<html manifest="...">` 关联。
+**回答**：AppCache 用 manifest 声明离线资源，通过 `<html manifest="...">` 关联。
 
 ```text
 CACHE MANIFEST
@@ -56,16 +56,20 @@ flowchart TD
     G -- "成功" --> I["新缓存就绪但本次不生效<br/>下一次访问才启用"]
 `} />
 
-废弃原因：
+### 3. 面试官：AppCache 为什么被废弃？
+
+**回答**：它有四个改不掉的缺陷：
 
 - **更新原子性差**：任一资源失败，整次更新作废。
 - **更新滞后**：成功也要下次访问才生效。
 - **隐式规则**：不在 CACHE 也不在 NETWORK 的资源，离线时无法加载。
 - **策略固定**：只有缓存优先一种。
 
-### 3. Service Worker + Cache API
+所以现代方案换成了 Service Worker + Cache API。
 
-Service Worker 是运行在独立线程的可编程网络代理，配合 Cache API 可以完全控制请求走缓存还是网络。
+### 4. 面试官：Service Worker + Cache API 怎么用？工作原理是什么？
+
+**回答**：Service Worker 是运行在独立线程的**可编程网络代理**，配合 Cache API 可以完全控制请求走缓存还是网络。使用分两步：页面里注册，sw.js 里写三个生命周期事件。
 
 ```js
 // 1. 页面中注册（要求 HTTPS 或 localhost，作用域默认为 sw.js 所在目录）
@@ -96,9 +100,25 @@ self.addEventListener('fetch', (e) => {             // 拦截请求：缓存优�
 });
 ```
 
+相比 AppCache，它把固定规则换成了代码：
+
 - **缓存策略可编程**：`fetch` 事件里可以实现缓存优先、网络优先、stale-while-revalidate。
 - **更新粒度可控**：单个资源失败不会导致整次更新作废；浏览器逐字节比对 `sw.js` 后在后台安装新版本，调用 `skipWaiting()` + `clients.claim()` 可以立即接管。
 - **失败可以回退**：捕获网络错误后按需返回回退页面。
+
+### 5. 面试官：数据离线有哪些方案？怎么选？
+
+**回答**：数据离线按容量和接口选择：
+
+| 方案 | 同源容量 | 接口风格 | 生命周期 | 典型用途 |
+| --- | --- | --- | --- | --- |
+| **localStorage** | 约 5MB | 同步，只能存字符串 | 永久（手动清除） | token、主题偏好等小数据 |
+| **sessionStorage** | 约 5MB | 同步，只能存字符串 | 当前标签页关闭即清 | 临时表单数据 |
+| **IndexedDB** | 大容量（受浏览器配额限制） | 异步、事务型，可存对象 / 文件 | 永久 | 离线同步、草稿、大量结构化数据 |
+
+### 6. 面试官：能总结一下吗？
+
+**回答**：资源离线侧，AppCache 与 Service Worker 的差距用一张表收尾：
 
 | 维度 | AppCache（已废弃） | Service Worker + Cache API |
 | --- | --- | --- |
@@ -107,15 +127,7 @@ self.addEventListener('fetch', (e) => {             // 拦截请求：缓存优�
 | 单资源失败 | 整次更新作废 | 可按请求粒度重试 / 回退 |
 | 缓存策略 | 固定缓存优先 | 任意策略自由实现 |
 
-### 4. 数据离线方案
-
-数据离线按容量和接口选择：
-
-| 方案 | 同源容量 | 接口风格 | 生命周期 | 典型用途 |
-| --- | --- | --- | --- | --- |
-| **localStorage** | 约 5MB | 同步，只能存字符串 | 永久（手动清除） | token、主题偏好等小数据 |
-| **sessionStorage** | 约 5MB | 同步，只能存字符串 | 当前标签页关闭即清 | 临时表单数据 |
-| **IndexedDB** | 大容量（受浏览器配额限制） | 异步、事务型，可存对象 / 文件 | 永久 | 离线同步、草稿、大量结构化数据 |
+一句话：资源离线用 Service Worker + Cache API；数据离线按容量选——小数据 localStorage / sessionStorage，大量结构化数据 IndexedDB。
 
 ## 你的回答
 

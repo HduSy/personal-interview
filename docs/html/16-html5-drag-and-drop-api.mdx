@@ -4,7 +4,9 @@ import { Mermaid } from '../../components';
 
 ## 高频问答
 
-### 1. 核心模型：三个角色
+### 1. 面试官：说一下 HTML5 的拖放 API？
+
+**回答**：核心模型是**三个角色**：拖拽源、投放目标，加上贯穿全程的数据载体 `DataTransfer`。
 
 | 角色 | 是什么 | 职责 |
 | --- | --- | --- |
@@ -21,7 +23,9 @@ import { Mermaid } from '../../components';
 
 默认可拖的只有三类：**图片 `<img>`、带 `href` 的链接 `<a>`、被选中的文本**，其余元素必须显式加 `draggable="true"`。
 
-### 2. 事件流程
+### 2. 面试官：拖放的事件流程是什么？
+
+**回答**：七个事件按顺序走——源上三个，目标上四个：
 
 <Mermaid chart={`
 sequenceDiagram
@@ -51,7 +55,9 @@ sequenceDiagram
 
 记忆方式：源上有三个（start / drag / end），目标上有四个（enter / over / leave / drop）。
 
-### 3. DataTransfer 对象
+### 3. 面试官：DataTransfer 有哪些成员？有什么要注意的？
+
+**回答**：成员一览：
 
 | 成员 | 说明 |
 | --- | --- |
@@ -67,7 +73,7 @@ sequenceDiagram
 
 `type` 用 MIME 类型：标准的有 `text/plain`、`text/html`、`text/uri-list`，也可以自定义 `application/x-my-app` 这类私有类型，避免和其他拖放源冲突。
 
-拖拽过程中 `dataTransfer` 处于**保护模式**：在 `dragenter` / `dragover` 里调用 `getData()` 只能拿到**空字符串**，只有 `types` 可读。这是为了防止页面在用户放下之前窥探内容。
+最大的注意点是**保护模式**：拖拽过程中 `dataTransfer` 处于保护模式，在 `dragenter` / `dragover` 里调用 `getData()` 只能拿到**空字符串**，只有 `types` 可读。这是为了防止页面在用户放下之前窥探内容。
 
 ```js
 target.addEventListener('dragover', (e) => {
@@ -77,7 +83,9 @@ target.addEventListener('dragover', (e) => {
 });
 ```
 
-### 4. 最小可用示例
+### 4. 面试官：能写一个最小可用示例吗？
+
+**回答**：四个监听器，从写数据到收尾：
 
 ```js
 const source = document.getElementById('source');
@@ -108,9 +116,9 @@ source.addEventListener('dragend', () => {
 });
 ```
 
-### 5. 实战：文件上传与列表排序
+### 5. 面试官：实际项目里怎么做文件上传和列表排序？
 
-#### (1) 拖拽文件上传
+**回答**：两个典型场景。拖拽文件上传——注意阻止冒泡防止浏览器直接打开文件，并用 `relatedTarget` 判断是否真的离开了放置区：
 
 ```js
 const zone = document.getElementById('drop-zone');
@@ -142,7 +150,7 @@ zone.addEventListener('drop', (e) => {
 
 文件场景不需要 `setData`，数据由操作系统直接填进 `dataTransfer.files`。
 
-#### (2) 列表排序
+列表排序：
 
 ```js
 list.addEventListener('dragover', (e) => {
@@ -170,23 +178,22 @@ function getDragAfterElement(container, y) {
 
 排序的关键是在 `dragover` 里实时调整 DOM 顺序，而不是等 `drop` 再插入，这样拖动时就能看到元素跟着走。
 
-### 6. 失效条件
+### 6. 面试官：拖放没反应，一般是什么原因？还有哪些坑？
+
+**回答**：「拖放没反应」最常见的原因是 `dragover` 里忘了 `preventDefault()`。完整的失效条件和坑：
 
 - **不 `preventDefault()` 就没有 `drop`**：`dragover` 不阻止默认行为，浏览器认为该区域不接受放置，这是「拖放没反应」最常见的原因。
 - **`getData()` 在 `dragover` 里读不到**：保护模式，只有 `types` 可读。
 - **`effectAllowed` 与 `dropEffect` 必须兼容**：`effectAllowed = 'copy'` 而 `dropEffect = 'move'` 时，光标显示为禁止，`drop` 也不发生。
 - **`dragend` 才兜底**：拖到窗口外或按 Esc 取消时不触发 `drop`，只有 `dragend` 一定触发，所有清理逻辑放这里。
-
-### 7. 其他边界
-
 - **`dragleave` 会被子元素冒泡误触发**：从父元素移到子元素也会触发，用 `e.relatedTarget` 判断是否真的离开容器，或维护计数器。
 - **图片和链接默认可拖**：不想要加 `draggable="false"`；`draggable="true"` 的元素文本选中会受影响，必要时配合 `user-select: none`。
 - **文件拖到页面上浏览器会直接打开**：必须在 `document` 上也监听 `dragover` / `drop` 并 `preventDefault()`。
 - **移动端基本不可用**：原生拖放为鼠标设计，触摸屏无原生拖拽手势，需用 Pointer Events 或库。
 
-### 8. 什么时候不用它
+### 7. 面试官：什么时候不该用原生拖放 API？
 
-原生 Drag and Drop API 的交互模型固定（拖影、光标、系统级拖拽语义），定制空间小，加上移动端缺陷，常见替代方案是：
+**回答**：交互需要定制或要支持移动端时不要用。原生 Drag and Drop API 的交互模型固定（拖影、光标、系统级拖拽语义），定制空间小，加上移动端缺陷，常见替代方案是：
 
 - **Pointer Events**（`pointerdown` / `pointermove` / `pointerup`）：鼠标、触摸、触控笔统一处理，完全可控，适合拖拽排序、看板、滑块。
 - **成熟的库**：`SortableJS`（列表排序）、`dnd-kit`（React 生态，基于 Pointer Events、支持无障碍键盘操作）、`react-dnd`（基于 HTML5 DnD，适合跨组件拖放）。

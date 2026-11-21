@@ -2,31 +2,34 @@
 
 ## 高频问答
 
-### 1. 什么是 meta 标签？
+### 1. 面试官：常用的 meta 标签有哪些？
 
-`<meta>` 标签位于 HTML 文档的 `<head>` 区域内，用于**提供关于 HTML 文档的元数据（Metadata）**。
+**回答**：`<meta>` 标签位于 HTML 文档的 `<head>` 区域内，用于**提供关于 HTML 文档的元数据（Metadata）**——元数据本身不会直接渲染显示在页面主体中，但会被**浏览器**（控制页面渲染与缓存行为）、**搜索引擎爬虫**（SEO 索引与权重评估）、**社交分享平台**（抓取卡片摘要与封面）读取和解析。
 
-元数据本身不会直接渲染显示在页面主体中，但会被**浏览器**（控制页面渲染与缓存行为）、**搜索引擎爬虫**（用于 SEO 索引与权重评估）、以及**社交分享平台**（抓取卡片摘要与封面）读取和解析。
+它的核心配置方式分三类属性组合：
 
-`<meta>` 标签的核心配置方式分为三类属性组合：
-- `charset`：声明字符编码。
-- `name` + `content`：面向文档元信息与 SEO（给爬虫和第三方工具看）。
+- `charset`：声明字符编码；
+- `name` + `content`：面向文档元信息与 SEO（给爬虫和第三方工具看）；
 - `http-equiv` + `content`：模拟 HTTP 响应头行为（给浏览器引擎看）。
 
-### 2. 常见 meta 标签按功能分类详解
-
-#### (1) 基础与字符编码
+最基础的一条是字符编码声明：
 
 ```html
 <!-- 声明文档字符编码，必须置于 head 最前部以避免乱码 -->
 <meta charset="UTF-8">
 ```
 
-#### (2) 移动端响应式视口（Viewport）
+其余常用的按功能分：移动端视口 viewport、SEO 一组、http-equiv 浏览器控制、社交分享的 OG 协议，下面逐个说。
+
+### 2. 面试官：移动端适配的 viewport 怎么配？
+
+**回答**：用 `name="viewport"` 控制视口宽度与缩放：
 
 ```html
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 ```
+
+各参数含义：
 
 | 参数 | 含义 |
 | --- | --- |
@@ -35,7 +38,9 @@
 | `maximum-scale=1.0` | 允许用户缩放到的最大比例 |
 | `user-scalable=no` | 是否允许用户通过双指手势缩放页面（`yes` / `no`） |
 
-#### (3) 搜索引擎优化（SEO）
+### 3. 面试官：SEO 相关的 meta 有哪些？
+
+**回答**：主要是 description、keywords、robots、author 四个：
 
 ```html
 <!-- 页面描述：搜索引擎展示在标题下方的摘要，极大影响点击率 -->
@@ -51,7 +56,9 @@
 <meta name="author" content="Rayon">
 ```
 
-#### (4) 浏览器行为与 HTTP 模拟（`http-equiv`）
+### 4. 面试官：http-equiv 是干什么的？
+
+**回答**：`http-equiv` + `content` 用于**模拟 HTTP 响应头的行为**，直接给浏览器引擎下指令，常见的有渲染模式、自动刷新、缓存控制、内容安全策略：
 
 ```html
 <!-- 告知 IE 浏览器采用最高版本的渲染模式（Edge 模式） -->
@@ -68,9 +75,9 @@
 <meta http-equiv="Content-Security-Policy" content="script-src 'self'">
 ```
 
-#### (5) 社交平台分享与 Open Graph（OG 协议）
+### 5. 面试官：社交平台分享出来的链接卡片是怎么做的？
 
-常用于微信、Twitter/X、Facebook、Slack 等平台的卡片分享预览：
+**回答**：用 Open Graph（OG）协议的一组 `property` meta。微信、Twitter/X、Facebook、Slack 等平台抓取它们生成卡片分享预览：
 
 ```html
 <meta property="og:type" content="website">
@@ -80,7 +87,9 @@
 <meta property="og:url" content="https://example.com">
 ```
 
-### 3. 核心对比与速记表格
+### 6. 面试官：能总结一下吗？
+
+**回答**：按分类速记：
 
 | 分类 | 常见键名 (`name` / `http-equiv` / `property`) | 核心作用 |
 | --- | --- | --- |
