@@ -1,0 +1,111 @@
+import { Sandpack } from '../../components';
+
+# 34. WeakMap 与 Map 有什么区别？
+
+## 高频问答
+
+### 1. 面试官：什么是 WeakMap？
+
+**回答**：WeakMap 是一种**键值对集合**，API 和 Map 一致（`set` / `get` / `has` / `delete`），但带两条硬约束：**键必须是对象**，且**键是弱引用**——WeakMap 对键的引用不阻止垃圾回收，键对象没有其他引用时被 GC 收走，对应条目连同值自动删除。
+
+「数据生命周期跟随键对象」是它全部特性的来源：键类型受限、条目会自己消失、也因此不能遍历、没有 size——后面几问逐一对照 Map 展开。
+
+### 2. 面试官：与 Map 的区别——键的类型上差在哪？
+
+**回答**：**Map 的键可以是任意类型**——字符串、数字、布尔、对象、函数都行；**WeakMap 的键只能是对象**，传原始值直接抛 TypeError「Invalid value used as weak map key」。
+
+原因：原始值（number、string、boolean）不可变，没有「没有引用了就被回收」的生命周期，弱引用语义对它们不成立，规范直接禁止。例外是 **ES2023 起未注册的 symbol 可以做键**——symbol 有独立身份、可被回收，弱引用语义成立；`Symbol.for('x')` 进了全局注册表、永不回收，照样被拒：
+
+```js
+new WeakMap().set('a', 1);              // TypeError：Invalid value used as weak map key
+const s = Symbol('s');
+new WeakMap().set(s, 1);                // OK —— 未注册 symbol
+new WeakMap().set(Symbol.for('x'), 1);  // TypeError —— 全局注册的 symbol
+```
+
+### 3. 面试官：垃圾回收机制上的区别？
+
+**回答**：**Map 对键是强引用**：只要 Map 本身可达，里面每个键对象就从根可达——哪怕业务代码早不用这个对象了，GC 照样收不走。Map 只进不出，就是 [内存泄漏题](/javascript/31-memory-leak-scenarios)里「无上限缓存」那一类的泄漏。
+
+**WeakMap 对键是弱引用**：键到条目这条引用不算进可达性判定——键对象除 WeakMap 外没有别的引用时就是不可达，GC 照收，条目和值一起消失。所以条目生命周期跟随**键对象**，而不是跟随容器。
+
+边界要说清：**条目消失的时机由 GC 决定**——置空引用不会立刻消失，没有确定时机，也无法监听（观察回收现场用 FinalizationRegistry，[GC 题](/javascript/30-memory-and-gc)的沙箱演示过）。
+
+### 4. 面试官：可遍历性和方法属性上的区别？
+
+**回答**：**Map 可迭代**——for...of、forEach、keys / values / entries 都有，另有 size 属性和 clear()；**WeakMap 全都没有**——只有 set / get / has / delete，也不是 Map 的子类。
+
+原因：条目集合动态且外部不可观测——键随时可能被 GC 收走，任何时刻的 size 和遍历结果都无法保证一致，规范干脆不提供观测手段。想清空一个 WeakMap，唯一办法是把 WeakMap 引用本身置空。沙箱对照验证：
+
+<Sandpack
+  template="static"
+  showConsole
+  height={200}
+  html={`<p style="font-family: system-ui; padding: 12px; color: #666; font-size: 13px;">
+  打开下方 Console 查看对照结果
+</p>`}
+  js={`const wm = new WeakMap(), m = new Map();
+
+console.log('—— 键类型限制 ——');
+try { wm.set('a', 1); } catch (e) {
+  console.log('string 键 →', e.constructor.name + ':', e.message);
+}
+const s = Symbol('s');
+wm.set(s, 1);
+console.log('未注册 symbol 键 → OK，wm.has(s) =', wm.has(s));
+try { wm.set(Symbol.for('x'), 1); } catch (e) {
+  console.log('注册 symbol 键 → 照样 TypeError');
+}
+
+console.log('—— API 面 ——');
+console.log('wm.size =', wm.size, '/ m.size =', m.size);
+console.log('wm.forEach =', typeof wm.forEach, '/ m.forEach =', typeof m.forEach);
+console.log('wm.keys =', typeof wm.keys, '/ wm.clear =', typeof wm.clear);
+console.log('wm instanceof Map =', wm instanceof Map);`}
+/>
+
+### 5. 面试官：各自的使用场景是什么？
+
+**回答**：共同形状是「**数据的生命周期应该跟随键对象，而不是跟随容器**」。三类典型：
+
+- **给对象挂元数据**：以 DOM 节点为键存状态——节点从文档移除并被回收后，状态自动跟着消失，不需要手动清理（[内存泄漏题](/javascript/31-memory-leak-scenarios)里它就是「游离 DOM 缓存」的修复方案）。框架内部大量这么用：Vue3 的响应式系统就用 WeakMap 存「原始对象 → 代理对象」的映射；
+- **对象维度的缓存**：以对象为键缓存计算结果（比如给某个元素算过的尺寸），对象没了缓存自动失效，不会像 Map 缓存那样只进不出；
+- **私有数据**：类的实例做键、私有数据做值，WeakMap 藏在模块作用域里——这是 `#` 私有字段出现之前的经典方案。
+
+反过来说，键是字符串或数字的表（ID → 用户），必须用 Map——WeakMap 键不上原始值，而且你本来就需要条目稳定存在。
+
+### 6. 面试官：能总结一下吗？
+
+**回答**：一张表收尾：
+
+| 维度 | Map | WeakMap |
+| --- | --- | --- |
+| 键类型 | 任意值 | 对象 / 未注册 symbol |
+| 引用强度 | 强引用，Map 活着条目就活着 | 弱引用，不阻止键回收 |
+| 条目生命周期 | 跟随容器 | 跟随键对象 |
+| size | 有 | 没有 |
+| 遍历 | forEach / keys / values / entries | 全部没有 |
+| clear | 有 | 没有（置空引用即清空） |
+| 典型用途 | 通用键值表 | 对象元数据、对象缓存、私有数据 |
+
+## 加深理解
+
+### WeakMap 弱引用的是键，不是值
+
+常见误区是「WeakMap 整个都是弱引用」。弱只发生在「键 → 条目」这一条边上：**值是被强持有的**——只要 WeakMap 可达，value 就可达。推论是一个真实的坑：如果 value 里反过来引用了 key（比如 value 是一个攥着 key 的闭包），键就被值拽住了，永远不可回收，弱引用形同虚设。排查「WeakMap 里的对象怎么没被回收」时先查值里的反向引用。
+
+### 条目消失的时机不可预测、不可监听
+
+规范不保证「置空引用后条目何时消失」——回收只发生在 GC 运行时，不同引擎、不同内存压力下时机都不同。代码层面没有任何 API 能查询或监听这件事（能做的只有 FinalizationRegistry 在回收后收通知）。所以依赖「键没了条目马上没了」的业务逻辑本身就写错了，WeakMap 的正确用法只依赖「最终会消失」这个保证。
+
+### WeakSet：同一套弱引用语义的单值版
+
+WeakSet 和 WeakMap 共享同一套设计：成员必须是对象、不阻止成员回收、没有 size、不能遍历。API 只有 add / has / delete。用途是「给对象打标记」——记录「处理过的节点」「活跃的连接」这类集合，成员该消失时自动出集合，不延长任何对象的寿命。WeakRef 与 FinalizationRegistry 是同族的另外两位（回收现场观察见 [GC 题](/javascript/30-memory-and-gc)）。
+
+### 用 WeakMap 存私有数据不如 `#` 私有字段
+
+WeakMap 方案：模块内 `const _balance = new WeakMap()`，构造时 `set(this, 0)`，方法里 `get(this)` 读。能实现「外部拿不到」，但每加一个私有字段就多一张表、每次访问多一次查找。`#` 字段是语言级方案：引擎强制封装、实例本身携带数据、无额外查找。WeakMap 方案在今天只剩一个适用场景——私有数据要「附加在别人家的类实例」上（给第三方对象的实例挂私有状态），自家类的私有成员一律用 `#`。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）

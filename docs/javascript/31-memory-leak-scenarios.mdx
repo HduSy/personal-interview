@@ -1,0 +1,172 @@
+import { Sandpack } from '../../components';
+
+# 31. 内存泄漏的常见场景有哪些？
+
+## 高频问答
+
+### 1. 面试官：内存泄漏的常见场景有哪些？
+
+**回答**：先定位本质：JS 没有手动释放内存，回收由 GC 按**可达性**自动完成（判定机制见 [GC 题](/javascript/30-memory-and-gc)）。所以泄漏从来不是「内存没释放」，而是**「该回收的对象被一条没料到的引用链拽着，从根一直可达，GC 收不走」**。高频场景五类：
+
+- **意外的全局变量**：函数里漏写声明，对象挂到 window，活到页面关闭；
+- **被遗忘的定时器**：setInterval 不 clearInterval，回调闭包持有的大对象一直可达；
+- **未解绑的事件监听**：监听器挂在 window / document 这类长寿命对象上，回调攥着组件数据；
+- **游离的 DOM 引用**：节点已从文档移除，JS 变量或缓存还指着它；
+- **无上限的缓存**：Map 只进不出，越攒越大。
+
+单页应用里最容易出事故的是**定时器和监听器**这两类——都发生在「组件卸载、页面离开」时漏了收尾。下面逐类看代码。
+
+### 2. 面试官：意外的全局变量是怎么泄漏的？
+
+**回答**：函数里给没声明的变量赋值，非严格模式下不报错，直接挂到全局对象上：
+
+```js
+function processOrder(order) {
+  cache = order.items;        // 漏写 const/let —— 等价于 window.cache = order.items
+}
+```
+
+`order.items` 可能是几 MB 的数据，本意是函数内的临时变量，结果活到页面关闭。另一个隐蔽变体：普通函数里用 `this` 缓存数据，裸调用时非严格模式的 `this` 指向 window，`this.cache = ...` 同样挂到全局。
+
+**修复靠工具而非记忆**：严格模式下这句直接抛 `ReferenceError`——ESM 代码默认严格模式，等于天然免疫；再配 ESLint 的 `no-undef` 规则，写错当场报错。五类泄漏里，这是唯一能被工具彻底拦住的一类。
+
+### 3. 面试官：被遗忘的定时器泄漏长什么样？
+
+**回答**：React 里最常见的写法——
+
+```js
+useEffect(() => {
+  const timer = setInterval(() => refreshStats(), 1000);
+  // return () => clearInterval(timer);   ← 漏了这行 cleanup
+}, []);
+```
+
+`refreshStats` 是闭包，捕获着组件的状态和数据；组件卸载后 interval 不停，这条引用链就不断——**组件没了，它的数据还在内存里「活着」**。单页应用里进出这个页面 N 次，堆上就同时跑着 N 个 interval。Vue 的对应写法是在 `onUnmounted` 里 clearInterval。
+
+现场验证：卸载组件但漏写收尾，观察定时器和监听器是否还在工作——
+
+<Sandpack
+  template="static"
+  height={260}
+  html={`<div style="font-family: system-ui; padding: 12px;">
+  <button id="mount" style="padding: 6px 12px;">① 挂载组件</button>
+  <button id="unmount-buggy" style="padding: 6px 12px;">② 卸载（漏写收尾）</button>
+  <button id="unmount-fixed" style="padding: 6px 12px;">③ 修复版卸载</button>
+  <div id="stage" style="margin-top: 8px; padding: 10px; border: 1px dashed #999; font-size: 13px; cursor: pointer;">
+    点我模拟用户点击页面（挂载后点、卸载后再点，对比响应）
+  </div>
+  <div id="log" style="margin-top: 8px; font-size: 13px; color: #334; line-height: 1.8;"></div>
+</div>`}
+  js={`const logEl = document.querySelector('#log');
+const log = (msg) => {
+  const div = document.createElement('div');
+  div.textContent = msg;
+  logEl.prepend(div);
+  while (logEl.children.length > 8) logEl.lastChild.remove();
+};
+
+const stage = document.querySelector('#stage');
+let timer = null, onStageClick = null, bigData = null;
+
+document.querySelector('#mount').onclick = () => {
+  bigData = new Array(1e5).fill('订单明细…');            // 组件持有的大对象
+  timer = setInterval(() => log('[订单面板] 心跳：定时器还在跑'), 1000);
+  onStageClick = () => log('[订单面板] 收到点击：监听器还在跑');
+  stage.addEventListener('click', onStageClick);
+  log('① 挂载：定时器 + 监听器已注册，bigData 被回调闭包持有');
+};
+
+document.querySelector('#unmount-buggy').onclick = () => {
+  log('② 卸载：只把 mounted 标志置 false —— 定时器、监听器全没动');
+};
+
+document.querySelector('#unmount-fixed').onclick = () => {
+  clearInterval(timer);
+  stage.removeEventListener('click', onStageClick);
+  timer = null; onStageClick = null; bigData = null;
+  log('③ 修复版卸载：clearInterval + removeEventListener —— 观察下方是否安静了');
+};`}
+/>
+
+走一遍 ①→②：组件已「卸载」，心跳照样跳、点击照样响应——这就是泄漏的运行时表现。再走 ③：日志安静，引用链真正断开。
+
+### 4. 面试官：事件监听器怎么泄漏？怎么正确解绑？
+
+**回答**：监听器挂在 window / document / 全局总线上，回调闭包持有组件数据，组件销毁时如果没解绑，数据就跟着监听器一起活下来。上一问沙箱里那个 `onStageClick` 就是这类：卸载后点页面仍有响应。三类高发位置：`window` 的 resize / scroll 监听、EventBus（`on` 了不 `off`）、第三方库注册的监听（图表库、拖拽库自己的实例没 destroy）。
+
+正确解绑有两种方式：
+
+```js
+// 方式一：同一函数引用才能 remove
+window.addEventListener('resize', onResize);
+window.removeEventListener('resize', onResize);   // 传匿名函数解不掉
+
+// 方式二：AbortController 一行收掉该信号下的所有监听
+const ac = new AbortController();
+window.addEventListener('resize', onResize, { signal: ac.signal });
+window.addEventListener('scroll', onScroll, { signal: ac.signal });
+ac.abort();   // 卸载时一处调用，全部解绑
+```
+
+匿名函数直接 add 又直接 remove 是解不掉的——removeEventListener 要求同一引用，这就是很多代码「明明写了 remove 却没生效」的原因。
+
+### 5. 面试官：游离的 DOM 引用是怎么回事？
+
+**回答**：DOM 节点从文档移除后，只要还有 JS 变量指着它，它就**连着整棵子树**回收不了——表格里每个单元格、每个挂在单元格上的监听器都算在内：
+
+```js
+const table = document.querySelector('#table');
+// ……给表格挂一堆监听器……
+document.body.innerHTML = '';        // 表格从文档移除
+// table 变量还指着它 —— 这棵子树整体不可回收
+```
+
+更隐蔽的是把节点缓存进 Map 做复用：文档里节点早换了 N 代，缓存里的老节点全家还活着。修复两条：手动 DOM 操作用完把引用置 null；节点做键的缓存换 WeakMap——节点没有别的引用时，缓存条目连同数据自动消失（[Map 和 Object 题](/javascript/24-map-vs-object)讲过 WeakMap 的回收语义）。
+
+### 6. 面试官：缓存和闭包导致的泄漏怎么防？
+
+**回答**：**缓存一侧**，问题出在只进不出：
+
+```js
+const cache = new Map();
+function getData(key) {
+  if (!cache.has(key)) cache.set(key, fetchAndBuild(key));   // set 了从不 delete
+  return cache.get(key);
+}
+```
+
+key 来自用户输入、value 是完整构建结果时，Map 随使用量无界增长。修复：给缓存设上限并做淘汰（LRU），或者键是对象时换 WeakMap。
+
+**闭包一侧**，只要闭包活着，它捕获的变量就活着（[闭包题](/javascript/17-closures)）——把大对象捕进**长寿命回调**（全局注册的回调、永不停止的 interval），等同于把大对象挂到全局。修复：回调只捕获需要的小字段，大对象用完即释放，不进闭包。
+
+### 7. 面试官：能总结一下吗？
+
+**回答**：把五类场景落到项目里的具体位置和收尾动作：
+
+| 场景 | 项目里的高发位置 | 防泄漏动作 |
+| --- | --- | --- |
+| 意外全局变量 | 历史遗留的非严格模式代码 | 严格模式 + lint no-undef |
+| 遗忘的定时器 | useEffect / onUnmounted | 卸载回调里 clearInterval |
+| 未解绑监听 | window、document、EventBus | removeEventListener / AbortController |
+| 游离 DOM | 手动 DOM 操作、节点缓存 | 引用置 null；节点缓存用 WeakMap |
+| 无上限缓存 | 全局 Map 缓存 | 设上限 + LRU，或换 WeakMap |
+
+规律一句话：**谁注册、谁注销；谁创建、谁释放**——资源在哪个生命周期里创建，就在对应的生命周期里收尾。
+
+## 加深理解
+
+### 缓存到底算不算泄漏
+
+判断标准是「内存会不会随使用量无界增长」。有上限、有失效策略的缓存（LRU、TTL）不是泄漏——内存有界，是设计内的占用；只进不出、上限缺失的 Map 才是泄漏。所以「用了缓存」和「有泄漏风险」不是一回事，面试时把这条边界说清楚比背场景加分。
+
+### React 18 StrictMode 为什么会让漏写 cleanup 的问题翻倍
+
+开发模式下 StrictMode 会把 effect 执行两遍：挂载 → 卸载 → 再挂载。漏写 cleanup 时，第一遍的 interval 没被清理，第二遍又注册一个新的——同一个组件两个心跳同时跑。生产模式只执行一遍，问题被「藏起来」了。开发环境看到双倍请求、双倍日志，先怀疑 cleanup 漏写，别急着改业务逻辑。
+
+### 为什么 WeakRef 救不了定时器和监听器的泄漏
+
+WeakRef / WeakMap 的作用是「这种引用不阻止回收」，但定时器泄漏的引用链全程是强引用：interval 持有回调，回调闭包持有大对象——把大对象改成 WeakRef 包一层没有用，因为持有它的闭包变量本身是强引用。弱引用工具只适合「附加元数据」场景，不能用来给现成的强引用链「降级」。要断链，只能 clearInterval / removeEventListener / 置 null。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）

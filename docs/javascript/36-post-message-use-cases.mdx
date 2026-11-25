@@ -1,0 +1,177 @@
+import { Sandpack } from '../../components';
+
+# 36. postMessage 有哪些使用场景？
+
+## 高频问答
+
+### 1. 面试官：postMessage 有哪些使用场景？
+
+**回答**：postMessage 是**不同 JS 执行环境之间**的官方通信桥——凡是两个互相拿不到对方变量的「世界」（不同窗口、不同线程、不同文档），靠它传消息。五类场景：
+
+- **Web Worker**：主线程 ↔ Worker 传任务和数据（[Web Worker 题](/javascript/01-web-worker)）；
+- **跨域 iframe**：宿主页面 ↔ 嵌入的第三方 iframe——登录、支付控件、广告、嵌入的编辑器，同源策略切断了直接访问，postMessage 是唯一合法通道；
+- **弹窗**：`window.open` 出去的窗口 ↔ opener——OAuth 登录弹窗完成后通知父窗口，就靠这条；
+- **Service Worker**：页面 ↔ SW——下发推送数据、下发缓存更新指令；
+- **同源窗口解耦**：同源窗口能直接互访，但用消息代替直接方法调用可以解耦——双方不需要知道对方的内部结构。
+
+### 2. 面试官：怎么用？发送和接收的基本形状是什么？
+
+**回答**：一对 API。发送方：
+
+```js
+targetWindow.postMessage(data, targetOrigin);
+// targetOrigin 是安全阀门：接收方 origin 不匹配就不投递
+// 例：iframe.contentWindow.postMessage(data, 'https://trusted.example')
+```
+
+接收方监听 `message` 事件：
+
+```js
+window.addEventListener('message', (e) => {
+  if (e.origin !== 'https://trusted.example') return;  // 先校验来源，再处理
+  console.log(e.data);      // 消息内容
+  console.log(e.source);    // 发送方窗口的引用，可反向回信
+});
+```
+
+**两个安全动作缺一不可**：发送时指定精确的 targetOrigin（`'*'` 等于不设防）；接收时校验 `e.origin`。只写接收不校验的经典攻击面：恶意页面 `open` 你的页面，再 `postMessage` 伪造数据，你的监听器照单全收当成指令执行。
+
+### 3. 面试官：数据是怎么传过去的？和 JSON 序列化有什么区别？
+
+**回答**：postMessage 不走 JSON，走**结构化克隆算法**（structured clone）：在发送方把数据完整复制一份，接收方拿到独立副本。支持范围比 JSON 宽得多：Date、RegExp、Map、Set、ArrayBuffer、TypedArray、Blob、Error 对象、**循环引用**结构都能原样克隆；**函数和 Symbol 不能克隆**（抛 DataCloneError），DOM 节点同样不行。
+
+对照 `JSON.parse(JSON.stringify(x))`：Date 变字符串、Map/Set 变普通对象、函数直接丢、循环引用直接报错。沙箱里发一个 JSON 没法处理的结构，看它是否原样到达：
+
+<Sandpack
+  template="static"
+  height={250}
+  html={`<div style="font-family: system-ui; padding: 12px;">
+  <button id="send-text" style="padding: 6px 12px;">① 发一段文字</button>
+  <button id="send-obj" style="padding: 6px 12px;">② 发 Map + Date + 循环引用对象</button>
+  <div style="display: flex; gap: 12px; margin-top: 10px; font-size: 13px;">
+    <div style="flex: 1; border: 1px dashed #999; padding: 8px;">
+      <b>父页面收到（event.data）</b>
+      <div id="parent-log" style="color: #334; line-height: 1.8; margin-top: 4px;"></div>
+    </div>
+    <div style="flex: 1; border: 1px dashed #999; padding: 8px;">
+      <b>iframe 收到</b>
+      <iframe id="frame" style="border: none; width: 100%; height: 96px;"></iframe>
+    </div>
+  </div>
+</div>`}
+  js={`const parentLog = document.querySelector('#parent-log');
+const frame = document.querySelector('#frame');
+
+const show = (msg) => {
+  const div = document.createElement('div');
+  div.textContent = msg;
+  parentLog.prepend(div);
+  while (parentLog.children.length > 5) parentLog.lastChild.remove();
+};
+
+// iframe 内容：同样的 message 监听器，收到即展示并回信
+frame.srcdoc = '<!doctype html><style>body{font:13px system-ui;margin:4px;color:#334}</style>' +
+  '<div id="log"></div><scr' + 'ipt>' +
+  'var logEl = document.querySelector("#log");' +
+  'function describe(data) {' +
+  '  if (typeof data === "string") return data;' +
+  '  return "map instanceof Map: " + (data.map instanceof Map) + ' +
+  '         "；date instanceof Date: " + (data.date instanceof Date) + ' +
+  '         "；cyc.self === cyc: " + (data.cyc.self === data.cyc);' +
+  '}' +
+  'window.addEventListener("message", function (e) {' +
+  '  var div = document.createElement("div");' +
+  '  div.textContent = "收到：" + describe(e.data);' +
+  '  logEl.prepend(div);' +
+  '  e.source.postMessage("iframe 回信：" + describe(e.data), "*");' +
+  '});' +
+  '<\\/scr' + 'ipt>';
+
+// 父页面接收回信（演示用 '*'，生产代码必须校验 e.origin）
+window.addEventListener('message', (e) => show(e.data));
+
+document.querySelector('#send-text').onclick = () => {
+  frame.contentWindow.postMessage('你好，iframe', '*');
+};
+
+document.querySelector('#send-obj').onclick = () => {
+  const cyc = { name: '循环引用' };
+  cyc.self = cyc;                     // JSON.stringify 直接报错的结构
+  frame.contentWindow.postMessage(
+    { map: new Map([['a', 1]]), date: new Date(), cyc: cyc }, '*'
+  );
+  show('已发送：Map + Date + 循环引用对象');
+};`}
+/>
+
+右侧全绿证明结构化克隆的保真度：Map 还是 Map、Date 还是 Date、循环引用关系原样保留——JSON 路线这三样全废。
+
+### 4. 面试官：传大数据有什么优化？Transferable 是什么？
+
+**回答**：默认的结构化克隆是**复制**——传一个几百 MB 的 ArrayBuffer，两边各一份内存，复制本身也耗时。**Transferable 对象**提供第二种模式：**转移所有权**而不是复制：
+
+```js
+const buffer = new ArrayBuffer(1024 * 1024 * 256);   // 256 MB
+worker.postMessage(buffer, [buffer]);                // 第二个参数：转移清单
+console.log(buffer.byteLength);                      // 0 —— 发送方已失去所有权
+```
+
+零拷贝、纳秒级完成，代价是发送方的 buffer 立刻 detach（长度归零，不能再读写）。Worker 处理图像、音视频、大文件时这是标准优化：主线程把 buffer 转移给 Worker 算完，再转移回来。可转移的类型有限：ArrayBuffer、MessagePort 这类底层持有二进制数据的对象。
+
+### 5. 面试官：跨域 iframe 场景具体怎么落地？
+
+**回答**：三个高频落地：
+
+- **OAuth 登录弹窗**：父页 `open('https://auth.example/...')`，登录完成后弹窗里 `window.opener.postMessage(token, 'https://parent.example')`，父页校验 origin 后收 token 关弹窗——整套流程不需要同源；
+- **iframe 高度自适应**：跨域 iframe 无法读对方文档高度，约定 iframe 在内容变化时 `parent.postMessage({ type: 'resize', height }, targetOrigin)`，父页监听后设置 iframe 的高度；
+- **嵌入式应用**：编辑器、设计工具、支付控件以 iframe 嵌入，宿主和它之间定义一套消息协议（`{ type, payload }` 形状），双方 SDK 本质都是 postMessage 的封装。
+
+共同模式：**先约定消息协议（type + payload），发送指定 targetOrigin，接收校验 origin**——三件套齐了才是合格的跨窗口通信。
+
+### 6. 面试官：MessageChannel 和它是什么关系？
+
+**回答**：postMessage 的形状是「单发」：每次都要指定目标窗口，对方监听全局 message 事件——多个窗口互相通信时事件里全是别的窗口的消息，要靠 origin 和数据标记分拣。**MessageChannel 建立固定的双向通道**：`new MessageChannel()` 出一对 port（port1、port2），两端各持一个，`port1.postMessage` 直接到 port2 的 `onmessage`，互不干扰：
+
+```js
+const channel = new MessageChannel();
+worker.postMessage({ cmd: 'bind' }, [channel.port2]);  // port 转移给对方
+channel.port1.onmessage = (e) => { /* Worker 的回信 */ };
+```
+
+port 本身是 Transferable，可以经 postMessage 移交给任何窗口或 Worker——通信拓扑可以动态重组。Service Worker 与页面的双向通信、复杂 Worker 架构里多个 Worker 互聊，标准做法都是 MessageChannel。定位一句话：**postMessage 是按目标投递，MessageChannel 是按通道订阅**。
+
+### 7. 面试官：能总结一下吗？
+
+**回答**：场景速查表收尾：
+
+| 场景 | 通信双方 | 关键点 |
+| --- | --- | --- |
+| Web Worker | 主线程 ↔ Worker | structured clone；大 buffer 用 Transferable |
+| 跨域 iframe | 宿主 ↔ 嵌入页 | 唯一合法通道；约定消息协议 |
+| OAuth 弹窗 | opener ↔ 弹窗 | 弹窗完成后通知父窗口收结果 |
+| Service Worker | 页面 ↔ SW | 双向通信用 MessageChannel |
+| 同源窗口解耦 | 任意窗口 | 消息代替直接调用，双方解耦 |
+
+安全底线一句话：**发送指定 targetOrigin，接收校验 e.origin，缺一个都是漏洞**。
+
+## 加深理解
+
+### postMessage 是异步的，消息走任务队列
+
+`postMessage()` 调用完立即返回，不等对方处理——消息被放进接收方的任务队列，接收方当前同步代码跑完后才处理（[事件循环题](/javascript/19-event-loop)的宏任务）。推论：同源窗口「直接调对方方法」是同步的，改成 postMessage 就变异步——解耦的同时也改变了时序，原来依赖返回值的逻辑要改成回调或 Promise。
+
+### e.source 就是现成的回信地址
+
+监听器拿到的 `e.source` 是发送方窗口的引用，直接 `e.source.postMessage(reply, targetOrigin)` 就能回信——不需要事先保存对方引用。沙箱里 iframe 的回信就是这么写的。握手模式因此成立：第一次通信拿到 source 建立联系，之后双向互发。
+
+### structuredClone 已经是独立的全局函数
+
+结构化克隆算法不再是 postMessage 的附属品：现代浏览器和 Node 17+ 提供全局 `structuredClone(x)`，做深拷贝不用绕道 postMessage 或 JSON。和手写深拷贝/JSON 路线相比，它是引擎内置实现：保真度最高（含循环引用）、速度最快；仍是那两条边界——函数和 Symbol 不能克隆，原型链不保留（克隆出来是普通对象，方法丢失）。
+
+### 同源多标签通信其实不用 postMessage
+
+postMessage 的前提是「拿到对方窗口的引用」；多个标签页之间没有天然引用，要走 `window.open` 或 localStorage 中转。同源多标签的专用方案是 **BroadcastChannel**：加入同一个频道的页面互发消息，不需要任何窗口引用；更老的替代是 localStorage 的 storage 事件（写库触发其他标签的监听）。选型：跨源 iframe/弹窗只能 postMessage；同源多标签优先 BroadcastChannel。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）

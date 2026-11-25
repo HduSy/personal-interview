@@ -1,0 +1,111 @@
+import { Sandpack } from '../../components';
+
+# 33. JS、V8、Node.js、Deno、Bun 是什么关系？
+
+## 高频问答
+
+### 1. 面试官：JS、V8、Node.js、Deno、Bun 这几个，是什么关系？
+
+**回答**：按「语言 → 引擎 → 运行时」三层定关系：**JavaScript 是语言，V8 是执行它的引擎，Node.js / Deno / Bun 是把引擎接上真实世界的三个运行时**。引擎归属一句话：**Node 和 Deno 都基于 V8，Bun 基于 JavaScriptCore**。常考细节：Node 和 Deno 是**同一位作者 Ryan Dahl**——Deno 是他多年后对 Node 设计失误的修正版。
+
+下面逐个组件拆开讲。
+
+### 2. 面试官：V8 是什么？
+
+**回答**：**定义**：Google 开发的开源 JavaScript 引擎，用在 Chrome、Edge、Node.js、Deno 里。同类引擎还有 Safari 的 JavaScriptCore、Firefox 的 SpiderMonkey。
+
+**作用**：把 JS 源码变成机器码执行——解析、JIT 编译、垃圾回收都归它，Object、Array 这些内置类型的底层实现也在引擎里。JS 是动态类型，引擎要靠 JIT 边跑边猜测、边优化。
+
+**关系**：V8 只负责「执行语言」，不提供 setTimeout、fs、console 这些宿主 API——所以同一个 V8 既能出现在浏览器（Chrome）里，也能出现在服务端（Node、Deno）里，周边环境由上层组装。
+
+### 3. 面试官：Node.js 是什么？
+
+**回答**：**定义**：2009 年发布的 JS 服务端运行时，V8 + libuv 组合。
+
+**作用**：让 JS 离开浏览器也能跑——fs、http、path 这些内置 API 把文件系统、网络等操作系统能力接给 JS；事件驱动、非阻塞 IO 的模型建立在 libuv 的事件循环和线程池上。
+
+**关系**：用 V8 执行语言，自己补宿主环境；CommonJS 模块规范从这里起源（[模块化题](/javascript/26-module-specifications)）。今天的事实标准：生态最大、运维经验最丰富，不确定就选它。代价是早年设计成了历史包袱——默认全权限、CommonJS 与 ESM 双轨。
+
+### 4. 面试官：Deno 是什么？和 Node 是什么关系？
+
+**回答**：**定义**：2020 年发布的 JS/TS 运行时，同样基于 V8，作者是 Node 的原作者 Ryan Dahl。
+
+**作用**：修正 Node 的设计遗憾：**默认最小权限**——访问文件、网络、环境变量都要 `--allow-*` 显式授权；**ESM 优先**，支持 URL 直接导入；**原生 TypeScript**；API 对齐 Web 标准，fetch、URL 和浏览器同款。
+
+**关系**：引擎同 V8、作者同 Ryan Dahl，但它不是 Node 的继承者，而是对运行时的一次重构。生态隔离曾是短板，Deno 2 起反向兼容 npm 生态（支持 package.json 和 npm: 导入）。
+
+### 5. 面试官：Bun 是什么？它为什么不用 V8？
+
+**回答**：**定义**：2022 年发布的 JS/TS 运行时，基于 JavaScriptCore（Safari 的引擎）+ Zig 实现。
+
+**作用**：主打快和一体化——冷启动、包安装、构建速度都是卖点；运行时、包管理器、打包器、测试运行器合成一个二进制，`bun install` / `bun test` 不用另装工具。提供类似 Node 的 API，通过兼容层直接跑现有 npm 项目。
+
+**关系**：唯一没选 V8 的运行时——这正好证明**引擎是可替换的**：只要实现 ECMAScript 语义，运行时可以挑引擎，和浏览器各选各的引擎（Chrome 选 V8、Safari 选 JSC、Firefox 选 SpiderMonkey）是同一个逻辑。选 JSC 的理由：启动更快、内存更省，契合工具场景频繁冷启动；代价是与 V8 在 JIT 策略和边界行为上有细节差异，同一份代码两边性能特征可能不同。
+
+### 6. 面试官：语言和宿主的边界怎么判？能写代码验证吗？
+
+**回答**：判断标准一句话：**ECMAScript 规范里写的归语言——语法、类型、标准库（Promise、Map）、微任务队列；规范里没有、代码里却能用的，是宿主给的**——setTimeout、fetch、console、fs 全在这边。运行时之间再用全局标志物区分。验证：
+
+<Sandpack
+  template="static"
+  showConsole
+  height={200}
+  html={`<p style="font-family: system-ui; padding: 12px; color: #666; font-size: 13px;">
+  打开下方 Console 查看分层检查结果（当前运行环境是浏览器）
+</p>`}
+  js={`console.log('—— ECMAScript 语言自带（规范里有）——');
+console.log('typeof Promise:', typeof Promise);   // function
+console.log('typeof Map:', typeof Map);           // function
+
+console.log('—— 宿主提供（规范里没有，代码里能用）——');
+console.log('typeof setTimeout:', typeof setTimeout); // function
+console.log('typeof fetch:', typeof fetch);           // function
+console.log('typeof console:', typeof console);       // object
+
+console.log('—— 运行时标志物（用全局对象认宿主）——');
+console.log('typeof window:', typeof window);     // object：浏览器宿主
+console.log('typeof document:', typeof document); // object：浏览器宿主
+console.log('typeof process:', typeof process);   // undefined：Node 才有
+console.log('typeof Deno:', typeof Deno);         // undefined：Deno 才有
+console.log('typeof Bun:', typeof Bun);           // undefined：Bun 才有`}
+/>
+
+这段代码在任何运行时都能跑，输出会变的是后两块：语言自带的那组永远存在（引擎保证），`process` / `Deno` / `Bun` 只有各自运行时才有——**判断代码跑在哪个宿主，就看这些标志物**。
+
+### 7. 面试官：能总结一下吗？
+
+**回答**：三个运行时一张表：
+
+| 维度 | Node.js | Deno | Bun |
+| --- | --- | --- | --- |
+| 首发 | 2009 | 2020 | 2022 |
+| 引擎 | V8 | V8 | JavaScriptCore |
+| IO 底座 | libuv | Rust 的 tokio | Zig 自建 |
+| 模块 | CommonJS 起家，后补 ESM | ESM + URL 导入 | CJS / ESM 都支持 |
+| TypeScript | 23.6 / 22.18 起默认类型剥离 | 原生支持 | 原生支持 |
+| 权限模型 | 默认全权限 | 默认最小权限（--allow-*） | 默认全权限 |
+| 定位 | 事实标准，默认选项 | 修正 Node 的设计 | 一体化工具链，主打快 |
+
+加上分层一句话收尾：**语言是规范，引擎执行语言，运行时把引擎接上真实世界**——JS 到处能跑，靠的正是这三层各自独立。
+
+## 加深理解
+
+### 事件循环不归语言管
+
+ECMA-262 只定义了**微任务队列**（job queue，Promise 回调的排队机制）；宏任务队列和事件循环本身由宿主定义——浏览器写在 HTML 规范里，Node 由 libuv 实现。所以「JS = 单线程 + 事件循环」这个说法里，**单线程是语言层的保证**（一个调用栈），**事件循环是宿主层的设施**——同一门语言在浏览器和 Node 里有各自的事件循环实现（[事件循环题](/javascript/19-event-loop)）。
+
+### 三个运行时的 IO 底座
+
+Node 的异步 IO 建在 libuv 上：事件循环 + 线程池（默认 4 条，文件 IO、DNS 走线程池，[单线程题](/javascript/29-single-threaded)讲过）。Deno 建在 Rust 生态的 tokio 上；Bun 用 Zig 自建了 IO 层。事件循环与 IO 模型不同，是同一份代码在不同运行时下性能表现不同的主要来源之一。
+
+### Node 原生 TypeScript 只「剥类型」，不做检查和转换
+
+Node 跑 TS 的机制是**类型剥离**（type stripping）：把类型注解删掉后当 JS 执行。两个边界：**不做类型检查**——类型写错了运行时照样跑，类型安全仍要靠 tsc 和 lint；**不支持需要转换的语法**——enum、namespace、参数属性、旧版装饰器这类会被原样拒绝，要用 `--experimental-transform-types` 或继续走构建工具。所以「Node 能跑 TS 了」不等于「TS 项目不需要编译」。
+
+### 同一段代码为什么在不同运行时可能行为不同
+
+语言层是一致的：三家引擎都实现 ECMA-262，纯 JS 逻辑（排序、闭包、Promise 链）结果相同。差异全部来自宿主层和引擎层：全局对象不同（process / Deno / Bun）、模块解析规则不同、IO API 的行为和错误约定不同、JIT 策略不同导致性能特征不同。写「纯 JS」的库天然跨运行时，一旦碰了宿主 API 就绑定了运行时——跨运行时库的兼容层（比如 Node 兼容垫片）做的就是把宿主差异补齐。
+
+## 你的回答
+
+（待口述：读完上面的标准答案，用自己的话讲一遍发给我，我帮你填进来）
